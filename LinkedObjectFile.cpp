@@ -5,6 +5,7 @@
 #include <cassert>
 #include <numeric>
 #include <algorithm>
+#include <cstring>
 #include "LinkedObjectFile.h"
 #include "Disasm/InstructionDecode.h"
 
@@ -533,10 +534,40 @@ std::string LinkedObjectFile::print_disassembly() {
 
       auto& word = words_by_seg[seg][i];
       append_word_to_string(result, word);
+
+      if(word.kind == LinkedWord::TYPE_PTR && word.symbol_name == "string") {
+        result += "; " + get_goal_string(word, seg, i);
+      }
     }
   }
 
   return result;
+}
+
+/*!
+ * Hacky way to get a GOAL string object
+ */
+std::string LinkedObjectFile::get_goal_string(const LinkedWord &word, int seg, int word_idx) {
+  std::string result = "\"";
+  // next should be the size
+  LinkedWord& size_word = words_by_seg[seg].at(word_idx + 1);
+  if(size_word.kind != LinkedWord::PLAIN_DATA) {
+    // sometimes an array of string pointer triggers this!
+    return "invalid string!\n";
+  }
+
+//  result += "(size " + std::to_string(size_word.data) + "): ";
+  // now characters...
+  for(size_t i = 0; i < size_word.data; i++) {
+    int word_offset = word_idx + 2 + (i/4);
+    int byte_offset = i%4;
+    auto& word = words_by_seg[seg].at(word_offset);
+    assert(word.kind == LinkedWord::PLAIN_DATA);
+    char cword[4];
+    memcpy(cword, &word.data, 4);
+    result += cword[byte_offset];
+  }
+  return result + "\"\n";
 }
 
 /*!

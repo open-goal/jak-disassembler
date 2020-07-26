@@ -23,12 +23,12 @@ std::string ObjectFileRecord::to_unique_name() {
 /*!
  * Build an object file DB for the given list of DGOs.
  */
-ObjectFileDB::ObjectFileDB(const std::string& _root_dir, const std::vector<std::string>& _dgos) {
+ObjectFileDB::ObjectFileDB(const std::vector<std::string>& _dgos) {
   Timer timer;
 
   printf("- Initializing ObjectFileDB...\n");
   for(auto& dgo : _dgos) {
-    get_objs_from_dgo(combine_path(_root_dir, dgo));
+    get_objs_from_dgo(dgo);
   }
 
 
@@ -248,6 +248,7 @@ void ObjectFileDB::write_disassembly(const std::string &output_dir) {
 
   for(auto& kv : obj_files_by_name) {
     for(auto& obj : kv.second) {
+      // for now, also dump objects without functions.
       if(!obj.linked_data.has_any_functions()) continue;
       auto file_text = obj.linked_data.print_disassembly();
 

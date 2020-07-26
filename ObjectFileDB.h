@@ -36,7 +36,7 @@ struct ObjectFileData {
 
 class ObjectFileDB {
 public:
-  ObjectFileDB(const std::string& _root_dir, const std::vector<std::string>& _dgos);
+  ObjectFileDB(const std::vector<std::string>& _dgos);
   std::string generate_dgo_listing();
   void process_link_data();
   void process_labels();

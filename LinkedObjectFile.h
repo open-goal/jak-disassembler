@@ -116,6 +116,7 @@ public:
 
 private:
   void append_word_to_string(std::string& dest, const LinkedWord& word);
+  std::string get_goal_string(const LinkedWord& word, int seg, int word_idx);
   std::vector<Label> labels;
   std::vector<std::unordered_map<int, int>> label_per_seg_by_offset;
 };
