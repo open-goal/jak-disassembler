@@ -5,6 +5,7 @@
  */
 
 #include "LinkedObjectFileCreation.h"
+#include "game_version.h"
 #include <cassert>
 #include <cstring>
 
@@ -176,9 +177,9 @@ static uint32_t align64(uint32_t in) {
   return (in + 63) & (~63);
 }
 
-static uint32_t align32(uint32_t in) {
-  return (in + 31) & (~31);
-}
+//static uint32_t align32(uint32_t in) {
+//  return (in + 31) & (~31);
+//}
 
 static uint32_t align16(uint32_t in) {
   return (in + 15) & (~15);
@@ -192,7 +193,7 @@ static uint32_t align16(uint32_t in) {
  * | V4 header | data | V2 header | V2 link data |
  * -----------------------------------------------
  */
-static void link_v4(LinkedObjectFile& f, const std::vector<uint8_t>& data) {
+static void link_v4(LinkedObjectFile& f, const std::vector<uint8_t>& data, const std::string& name) {
 
   // read the V4 header to find where the link data really is
   const auto* header = (const LinkHeaderV4*)&data.at(0);
@@ -248,7 +249,9 @@ static void link_v4(LinkedObjectFile& f, const std::vector<uint8_t>& data) {
         } else {
           // then we are fixing consecutive pointers
           for(uint8_t i = 0; i < count; i++) {
-            f.pointer_link_word(0, code_ptr_offset - code_offset, 0, *((const uint32_t*)(&data.at(code_ptr_offset))));
+            if(!f.pointer_link_word(0, code_ptr_offset - code_offset, 0, *((const uint32_t*)(&data.at(code_ptr_offset))))) {
+              printf("WARNING bad link in %s\n", name.c_str());
+            }
             f.stats.total_v2_pointers++;
             code_ptr_offset += 4;
           }
@@ -385,8 +388,21 @@ static void link_v3(LinkedObjectFile& f, const std::vector<uint8_t>& data, const
     // HACK!
     // why is this a thing?
     // HACK!
-    if(name == "level-h" && seg_id == 0) {
+    if(gGameVersion == JAK1 && name == "level-h" && seg_id == 0) {
       segment_size++;
+    }
+
+    if(gGameVersion == JAK2) {
+      bool adjusted = false;
+      while(segment_size%4) {
+        segment_size++;
+        adjusted = true;
+      }
+
+      if(adjusted) {
+        printf("Adjusted the size of segment %d in %s, this is fine, but rare (and may indicate a bigger problem if it happens often)\n", seg_id, name.c_str());
+      }
+
     }
 
     auto base_ptr = segment_data_offsets[seg_id];
@@ -418,7 +434,9 @@ static void link_v3(LinkedObjectFile& f, const std::vector<uint8_t>& data, const
               uint32_t old_code = *(const uint32_t*)(&data.at(data_ptr));
               if((old_code >> 24) == 0) {
                 f.stats.v3_word_pointers++;
-                f.pointer_link_word(seg_id, data_ptr - base_ptr, seg_id, old_code);
+                if(!f.pointer_link_word(seg_id, data_ptr - base_ptr, seg_id, old_code)) {
+                  printf("WARNING bad pointer_link_word (2) in %s\n", name.c_str());
+                }
               } else {
                 f.stats.v3_split_pointers++;
                 auto dest_seg = (old_code >> 8) & 0xf;
@@ -426,9 +444,14 @@ static void link_v3(LinkedObjectFile& f, const std::vector<uint8_t>& data, const
                 assert(lo_hi_offset);
                 assert(dest_seg < 3);
                 auto offset_upper = old_code & 0xff;
-                assert(offset_upper == 0);
+//                assert(offset_upper == 0);
                 uint32_t low_code = *(const uint32_t*)(&data.at(data_ptr + 4 * lo_hi_offset));
                 uint32_t offset = low_code & 0xffff;
+                if(offset_upper) {
+                  // seems to work fine, no need to warn.
+//                  printf("WARNING - offset upper is set in %s\n", name.c_str());
+                  offset += (offset_upper << 16);
+                }
                 f.pointer_link_split_word(seg_id, data_ptr - base_ptr, data_ptr + 4 * lo_hi_offset - base_ptr, dest_seg, offset);
               }
               data_ptr += 4;
@@ -513,7 +536,7 @@ LinkedObjectFile to_linked_object_file(const std::vector<uint8_t>& data, const s
     link_v3(result, data, name);
   } else if(header->version == 4) {
     assert(header->type_tag == 0xffffffff);
-    link_v4(result, data);
+    link_v4(result, data, name);
   } else {
     assert(false);
   }

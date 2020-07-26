@@ -5,13 +5,15 @@
  * (there may be different object files with the same name sometimes)
  */
 
-#include <cstring>
-#include <algorithm>
 #include "ObjectFileDB.h"
-#include "util/Timer.h"
-#include "util/FileIO.h"
-#include "util/BinaryReader.h"
+#include <algorithm>
+#include <cstring>
 #include "LinkedObjectFileCreation.h"
+#include "game_version.h"
+#include "minilzo/minilzo.h"
+#include "util/BinaryReader.h"
+#include "util/FileIO.h"
+#include "util/Timer.h"
 
 /*!
  * Get a unique name for this object file.
@@ -63,12 +65,62 @@ static void assert_string_empty_after(const char* str, int size) {
   }
 }
 
+constexpr int MAX_CHUNK_SIZE = 0x8000;
 /*!
  * Load the objects stored in the given DGO into the ObjectFileDB
  */
 void ObjectFileDB::get_objs_from_dgo(const std::string& filename) {
   auto dgo_data = read_binary_file(filename);
   stats.total_dgo_bytes += dgo_data.size();
+
+  const char jak2_header[] = "oZlB";
+  bool is_jak2 = true;
+  for(int i = 0; i < 4; i++) {
+    if(jak2_header[i] != dgo_data[i]) {
+      is_jak2 = false;
+    }
+  }
+
+  if(is_jak2) {
+    if(lzo_init() != LZO_E_OK) {
+      assert(false);
+    }
+    BinaryReader compressed_reader(dgo_data);
+    // seek past oZlB
+    compressed_reader.ffwd(4);
+    auto decompressed_size = compressed_reader.read<uint32_t>();
+    std::vector<uint8_t> decompressed_data;
+    decompressed_data.resize(decompressed_size);
+    size_t output_offset = 0;
+    while(true) {
+      // seek past alignment bytes and read the next chunk size
+      uint32_t chunk_size = 0;
+      while(!chunk_size) {
+        chunk_size = compressed_reader.read<uint32_t>();
+      }
+
+      if(chunk_size < MAX_CHUNK_SIZE) {
+        lzo_uint bytes_written;
+        auto lzo_rv = lzo1x_decompress(compressed_reader.here(), chunk_size, decompressed_data.data() + output_offset, &bytes_written, nullptr);
+        assert(lzo_rv == LZO_E_OK);
+        compressed_reader.ffwd(chunk_size);
+        output_offset += bytes_written;
+      } else {
+        // nope - sometimes chunk_size is bigger than MAX, but we should still use max.
+//        assert(chunk_size == MAX_CHUNK_SIZE);
+        memcpy(decompressed_data.data() + output_offset, compressed_reader.here(), MAX_CHUNK_SIZE);
+        compressed_reader.ffwd(MAX_CHUNK_SIZE);
+        output_offset += MAX_CHUNK_SIZE;
+      }
+
+      if(output_offset >= decompressed_size) break;
+      while(compressed_reader.get_seek() %4) {
+        compressed_reader.ffwd(1);
+      }
+    }
+    dgo_data = decompressed_data;
+  }
+
   BinaryReader reader(dgo_data);
   auto header = reader.read<DgoHeader>();
 
@@ -249,7 +301,7 @@ void ObjectFileDB::write_disassembly(const std::string &output_dir) {
   for(auto& kv : obj_files_by_name) {
     for(auto& obj : kv.second) {
       // for now, also dump objects without functions.
-      if(!obj.linked_data.has_any_functions()) continue;
+//      if(!obj.linked_data.has_any_functions()) continue;
       auto file_text = obj.linked_data.print_disassembly();
 
       auto file_name = combine_path(output_dir, obj.record.to_unique_name() + ".func");
@@ -280,7 +332,13 @@ void ObjectFileDB::find_code() {
       obj.linked_data.find_code();
       obj.linked_data.find_functions();
       obj.linked_data.disassemble_functions();
-      obj.linked_data.process_fp_relative_links();
+
+      if(gGameVersion != JAK2 || obj.record.to_unique_name() != "effect-control-v0") {
+        obj.linked_data.process_fp_relative_links();
+      } else {
+        printf("skipping process_fp_relative_links in %s\n", obj.record.to_unique_name().c_str());
+      }
+
 
       auto& obj_stats = obj.linked_data.stats;
       if(obj_stats.code_bytes / 4 > obj_stats.decoded_ops) {

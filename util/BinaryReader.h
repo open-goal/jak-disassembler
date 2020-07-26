@@ -34,6 +34,10 @@ public:
     return buffer + seek;
   }
 
+  uint32_t get_seek() {
+    return seek;
+  }
+
 private:
   uint8_t* buffer;
   uint32_t size;

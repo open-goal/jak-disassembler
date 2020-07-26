@@ -35,7 +35,7 @@ public:
   void push_back_word_to_segment(uint32_t word, int segment);
   int get_label_id_for(int seg, int offset);
   int get_label_at(int seg, int offset);
-  void pointer_link_word(int source_segment, int source_offset, int dest_segment, int dest_offset);
+  bool pointer_link_word(int source_segment, int source_offset, int dest_segment, int dest_offset);
   void pointer_link_split_word(int source_segment, int source_hi_offset, int source_lo_offset, int dest_segment, int dest_offset);
   void symbol_link_word(int source_segment, int source_offset, const char* name, LinkedWord::Kind kind);
   void symbol_link_offset(int source_segment, int source_offset, const char* name);
@@ -116,7 +116,7 @@ public:
 
 private:
   void append_word_to_string(std::string& dest, const LinkedWord& word);
-  std::string get_goal_string(const LinkedWord& word, int seg, int word_idx);
+  std::string get_goal_string(int seg, int word_idx);
   std::vector<Label> labels;
   std::vector<std::unordered_map<int, int>> label_per_seg_by_offset;
 };
