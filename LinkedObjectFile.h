@@ -123,6 +123,7 @@ private:
   std::shared_ptr<Form> to_form_script_object(int seg, int byte_idx, std::vector<bool> &seen);
 
   bool is_empty_list(int seg, int byte_idx);
+  bool is_string(int seg, int byte_idx);
   void append_word_to_string(std::string& dest, const LinkedWord& word);
   std::string get_goal_string(int seg, int word_idx);
   std::vector<Label> labels;

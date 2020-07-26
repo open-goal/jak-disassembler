@@ -542,7 +542,7 @@ std::string LinkedObjectFile::print_disassembly() {
       append_word_to_string(result, word);
 
       if (word.kind == LinkedWord::TYPE_PTR && word.symbol_name == "string") {
-        result += "; " + get_goal_string(seg, i);
+        result += "; " + get_goal_string(seg, i) + "\n";
       }
     }
   }
@@ -578,7 +578,7 @@ std::string LinkedObjectFile::get_goal_string(int seg, int word_idx) {
     memcpy(cword, &word.data, 4);
     result += cword[byte_offset];
   }
-  return result + "\"\n";
+  return result + "\"";
 }
 
 /*!
@@ -615,8 +615,6 @@ std::string LinkedObjectFile::print_scripts() {
         auto& label = labels.at(label_id);
         if ((label.offset & 7) == 2) {
           result += to_form_script(seg, word_idx, already_printed)->toStringPretty(0, 100) + "\n";
-        } else {
-          assert(false);  // would be a bug in the label system.
         }
       }
     }
@@ -692,6 +690,19 @@ std::shared_ptr<Form> LinkedObjectFile::to_form_script(int seg,
   return result;
 }
 
+bool LinkedObjectFile::is_string(int seg, int byte_idx) {
+  if(byte_idx%4) {
+    return false; // must be aligned pointer.
+  }
+  int type_tag_ptr = byte_idx - 4;
+  // must fit in segment
+  if(type_tag_ptr < 0 || size_t(type_tag_ptr) >= words_by_seg.at(seg).size() * 4) {
+    return false;
+  }
+  auto& type_word = words_by_seg.at(seg).at(type_tag_ptr/4);
+  return type_word.kind == LinkedWord::TYPE_PTR && type_word.symbol_name == "string";
+}
+
 /*!
  * Convert a (pointer object) to some nice representation.
  */
@@ -717,8 +728,12 @@ std::shared_ptr<Form> LinkedObjectFile::to_form_script_object(int seg,
           // list!
           result = to_form_script(seg, offset / 4, seen);
         } else {
-          // some random pointer, just print the label.
-          result = toForm(labels.at(word.label_id).name);
+          if(is_string(seg, offset)) {
+            result = toForm(get_goal_string(seg, offset/4 - 1));
+          } else {
+            // some random pointer, just print the label.
+            result = toForm(labels.at(word.label_id).name);
+          }
         }
       } else if (word.kind == LinkedWord::EMPTY_PTR) {
         result = gSymbolTable.getEmptyPair();
