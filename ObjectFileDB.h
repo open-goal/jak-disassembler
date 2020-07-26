@@ -41,6 +41,7 @@ public:
   void process_link_data();
   void process_labels();
   void find_code();
+  void find_scripts(const std::string &output_dir);
 
 
   void write_object_file_words(const std::string& output_dir, bool dump_v3_only);
@@ -54,6 +55,8 @@ private:
   std::unordered_map<std::string, std::vector<ObjectFileData>> obj_files_by_name;
 
   std::unordered_map<std::string, std::vector<ObjectFileRecord>> obj_files_by_dgo;
+
+  std::string all_scripts;
 
   struct {
     uint32_t total_dgo_bytes = 0;

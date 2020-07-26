@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include "LinkedWord.h"
 #include "Function/Function.h"
+#include "util/LispPrint.h"
 
 
 /*!
@@ -48,8 +49,11 @@ public:
   void find_functions();
   void disassemble_functions();
   void process_fp_relative_links();
+  std::string print_scripts();
   std::string print_disassembly();
   bool has_any_functions();
+
+
 
 
   struct Stats {
@@ -115,6 +119,10 @@ public:
   std::vector<std::vector<Function>> functions_by_seg;
 
 private:
+  std::shared_ptr<Form> to_form_script(int seg, int word_idx, std::vector<bool>& seen);
+  std::shared_ptr<Form> to_form_script_object(int seg, int byte_idx, std::vector<bool> &seen);
+
+  bool is_empty_list(int seg, int byte_idx);
   void append_word_to_string(std::string& dest, const LinkedWord& word);
   std::string get_goal_string(int seg, int word_idx);
   std::vector<Label> labels;

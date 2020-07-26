@@ -359,3 +359,27 @@ void ObjectFileDB::find_code() {
   printf(" total %.3f ms\n", timer.getMs());
   printf("\n");
 }
+
+void ObjectFileDB::find_scripts(const std::string &output_dir) {
+  printf("- Finding scripts in object files...\n");
+  Timer timer;
+
+  for(auto& kv : obj_files_by_name) {
+    for (auto& obj : kv.second) {
+      auto scripts = obj.linked_data.print_scripts();
+      if(!scripts.empty()) {
+        all_scripts += ";--------------------------------------\n";
+        all_scripts += "; " + obj.record.to_unique_name() + "\n";
+        all_scripts += ";---------------------------------------\n";
+        all_scripts += scripts;
+      }
+    }
+  }
+
+  auto file_name = combine_path(output_dir, "all_scripts.lisp");
+  write_text_file(file_name, all_scripts);
+
+  printf("Found scripts:\n");
+  printf(" total %.3f ms\n", timer.getMs());
+  printf("\n");
+}

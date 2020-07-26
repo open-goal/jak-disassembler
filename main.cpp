@@ -33,6 +33,7 @@ int main(int argc, char** argv) {
   db.process_link_data();
   db.find_code();
   db.process_labels();
+  db.find_scripts(output_path);
 
 //  db.write_object_file_words(output_path, false);
   db.write_disassembly(output_path);
