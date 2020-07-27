@@ -103,7 +103,10 @@ void LinkedObjectFile::symbol_link_word(int source_segment,
                                         LinkedWord::Kind kind) {
   assert((source_offset % 4) == 0);
   auto& word = words_by_seg.at(source_segment).at(source_offset / 4);
-  assert(word.kind == LinkedWord::PLAIN_DATA);
+//  assert(word.kind == LinkedWord::PLAIN_DATA);
+  if(word.kind != LinkedWord::PLAIN_DATA) {
+    printf("bad symbol link word\n");
+  }
   word.kind = kind;
   word.symbol_name = name;
 }
@@ -323,7 +326,8 @@ void LinkedObjectFile::find_code() {
       stats.code_bytes += 4 * offset_of_data_zone_by_seg.at(i);
     }
   } else {
-    assert(false);
+    // for files which we couldn't extract link data yet, they will have 0 segments and its ok.
+    assert(segments == 0);
   }
 }
 
