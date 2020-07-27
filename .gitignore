@@ -4,3 +4,6 @@ build/*
 out/*
 in/*
 in_jak1/*
+in_jak3/*
+out3/*
+out_cgo_only/*
