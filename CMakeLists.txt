@@ -23,8 +23,20 @@ if(CMAKE_COMPILER_IS_GNUCXX)
         -Wsign-promo")
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-add_executable(jak2_disassembler
-    util/LispPrint.cpp main.cpp
+set(wxBUILD_SHARED OFF CACHE BOOL "wxBUILD_SHARED" FORCE)
+
+set(wxUSE_STL ON CACHE BOOL "wxUSE_STL" FORCE)
+set(wxUSE_GUI ON CACHE BOOL "wxUSE_GUI" FORCE)
+set(wxUSE_OPENGL ON CACHE BOOL "wxUSE_OPENGL" FORCE)
+set(wxUSE_WINRT	OFF CACHE BOOL "wxUSE_WINRT" FORCE)
+set(wxUSE_EXCEPTIONS OFF CACHE BOOL "wxUSE_EXCEPTIONS" FORCE)
+
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/wxWidgets" EXCLUDE_FROM_ALL)
+
+add_executable(
+	jak2_disassembler
+    util/LispPrint.cpp
+	main.cpp
     ObjectFileDB.cpp
     Disasm/Instruction.cpp
     Disasm/InstructionDecode.cpp
@@ -41,3 +53,11 @@ add_executable(jak2_disassembler
     util/LispPrint.h
     util/Timer.cpp)
 target_include_directories(jak2_disassembler PRIVATE .)
+
+add_executable(jak_disasm_gui WIN32 gui/test.cpp)
+# TODO - Compiling this on linux/mac might require some fighting
+# getting per-monitor DPI scaling to work properly was not easy
+# Windows seems to be the only platform that wants these manifest files
+# so maybe just some CMake flags to compile on each platform? (this manifest is for 64 bit as well)
+target_sources(jak_disasm_gui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/wxWidgets/include/wx/msw/amd64_dpi_aware.manifest")
+target_link_libraries(jak_disasm_gui PRIVATE wxgl wxcore wxbase)
