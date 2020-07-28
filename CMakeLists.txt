@@ -54,7 +54,11 @@ add_executable(
     util/Timer.cpp)
 target_include_directories(jak2_disassembler PRIVATE .)
 
-add_executable(jak_disasm_gui WIN32 gui/test.cpp)
+add_executable(jak_disasm_gui WIN32
+	gui/App.cpp
+	gui/App.h
+	gui/MainFrame.cpp
+	gui/MainFrame.h)
 # TODO - Compiling this on linux/mac might require some fighting
 # getting per-monitor DPI scaling to work properly was not easy
 # Windows seems to be the only platform that wants these manifest files
