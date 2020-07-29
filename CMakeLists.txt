@@ -51,7 +51,7 @@ add_executable(
     game_version.h
     util/LispPrint.cpp
     util/LispPrint.h
-    util/Timer.cpp)
+    util/Timer.cpp "util/Log.h")
 target_include_directories(jak2_disassembler PRIVATE .)
 
 add_executable(jak_disasm_gui WIN32
