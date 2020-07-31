@@ -9,44 +9,39 @@
  * Timer for measuring time elapsed with clock_monotonic
  */
 class Timer {
-public:
-
+ public:
   /*!
    * Construct and start timer
    */
   explicit Timer() { start(); }
 
+#ifdef _WIN32
+  int clock_gettime_monotonic(struct timespec* tv);
+#endif
+
   /*!
    * Start the timer
    */
-  void start() { clock_gettime(CLOCK_MONOTONIC, &_startTime); }
+  void start();
 
   /*!
    * Get milliseconds elapsed
    */
-  double getMs() const { return (double)getNs() / 1.e6; }
+  double getMs() { return (double)getNs() / 1.e6; }
 
-  double getUs() const {
-    return (double)getNs() / 1.e3;
-  }
+  double getUs() { return (double)getNs() / 1.e3; }
 
   /*!
    * Get nanoseconds elapsed
    */
-  int64_t getNs() const {
-    struct timespec now = {};
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    return (int64_t)(now.tv_nsec - _startTime.tv_nsec) +
-           1000000000 * (now.tv_sec - _startTime.tv_sec);
-  }
+  int64_t getNs();
 
   /*!
    * Get seconds elapsed
    */
-  double getSeconds() const { return (double)getNs() / 1.e9; }
+  double getSeconds() { return (double)getNs() / 1.e9; }
 
   struct timespec _startTime = {};
 };
 
-
-#endif //JAK_V2_TIMER_H
+#endif  // JAK_V2_TIMER_H
