@@ -19,7 +19,7 @@
 /*!
  * Get a unique name for this object file.
  */
-std::string ObjectFileRecord::to_unique_name() {
+std::string ObjectFileRecord::to_unique_name() const {
   return name + "-v" + std::to_string(version);
 }
 
@@ -52,11 +52,12 @@ struct DgoHeader {
   char name[60];
 };
 
+namespace {
 /*!
  * Assert false if the char[] has non-null data after the null terminated string.
  * Used to sanity check the sizes of strings in DGO/object file headers.
  */
-static void assert_string_empty_after(const char* str, int size) {
+void assert_string_empty_after(const char* str, int size) {
   auto ptr = str;
   while (*ptr)
     ptr++;
@@ -65,6 +66,7 @@ static void assert_string_empty_after(const char* str, int size) {
     ptr++;
   }
 }
+}  // namespace
 
 constexpr int MAX_CHUNK_SIZE = 0x8000;
 /*!
@@ -174,6 +176,10 @@ void ObjectFileDB::add_obj_from_dgo(const std::string& obj_name,
   memcpy(data.data.data(), obj_data, obj_size);
   data.record.hash = hash;
   data.record.name = obj_name;
+  if (obj_files_by_name[obj_name].empty()) {
+    // if this is the first time we've seen this object file name, add it in the order.
+    obj_file_order.push_back(obj_name);
+  }
   data.record.version = obj_files_by_name[obj_name].size();
   obj_files_by_dgo[dgo_name].push_back(data.record);
   obj_files_by_name[obj_name].emplace_back(std::move(data));
@@ -213,12 +219,10 @@ void ObjectFileDB::process_link_data() {
 
   LinkedObjectFile::Stats combined_stats;
 
-  for (auto& kv : obj_files_by_name) {
-    for (auto& obj : kv.second) {
-      obj.linked_data = to_linked_object_file(obj.data, obj.record.name);
-      combined_stats.add(obj.linked_data.stats);
-    }
-  }
+  for_each_obj([&](ObjectFileData& obj) {
+    obj.linked_data = to_linked_object_file(obj.data, obj.record.name);
+    combined_stats.add(obj.linked_data.stats);
+  });
 
   printf("Processed Link Data:\n");
   printf(" code %d bytes\n", combined_stats.total_code_bytes);
@@ -250,11 +254,7 @@ void ObjectFileDB::process_labels() {
   printf("- Processing Labels...\n");
   Timer process_label_timer;
   uint32_t total = 0;
-  for (auto& kv : obj_files_by_name) {
-    for (auto& obj : kv.second) {
-      total += obj.linked_data.set_ordered_label_names();
-    }
-  }
+  for_each_obj([&](ObjectFileData& obj) { total += obj.linked_data.set_ordered_label_names(); });
 
   printf("Processed Labels:\n");
   printf(" total %d labels\n", total);
@@ -275,17 +275,15 @@ void ObjectFileDB::write_object_file_words(const std::string& output_dir, bool d
   Timer timer;
   uint32_t total_bytes = 0, total_files = 0;
 
-  for (auto& kv : obj_files_by_name) {
-    for (auto& obj : kv.second) {
-      if (obj.linked_data.segments == 3 || !dump_v3_only) {
-        auto file_text = obj.linked_data.print_words();
-        auto file_name = combine_path(output_dir, obj.record.to_unique_name() + ".txt");
-        total_bytes += file_text.size();
-        write_text_file(file_name, file_text);
-        total_files++;
-      }
+  for_each_obj([&](ObjectFileData& obj) {
+    if (obj.linked_data.segments == 3 || !dump_v3_only) {
+      auto file_text = obj.linked_data.print_words();
+      auto file_name = combine_path(output_dir, obj.record.to_unique_name() + ".txt");
+      total_bytes += file_text.size();
+      write_text_file(file_name, file_text);
+      total_files++;
     }
-  }
+  });
 
   printf("Wrote object file dumps:\n");
   printf(" total %d files\n", total_files);
@@ -304,17 +302,15 @@ void ObjectFileDB::write_disassembly(const std::string& output_dir,
   Timer timer;
   uint32_t total_bytes = 0, total_files = 0;
 
-  for (auto& kv : obj_files_by_name) {
-    for (auto& obj : kv.second) {
-      if (obj.linked_data.has_any_functions() || disassemble_objects_without_functions) {
-        auto file_text = obj.linked_data.print_disassembly();
-        auto file_name = combine_path(output_dir, obj.record.to_unique_name() + ".func");
-        total_bytes += file_text.size();
-        write_text_file(file_name, file_text);
-        total_files++;
-      }
+  for_each_obj([&](ObjectFileData& obj) {
+    if (obj.linked_data.has_any_functions() || disassemble_objects_without_functions) {
+      auto file_text = obj.linked_data.print_disassembly();
+      auto file_name = combine_path(output_dir, obj.record.to_unique_name() + ".func");
+      total_bytes += file_text.size();
+      write_text_file(file_name, file_text);
+      total_files++;
     }
-  }
+  });
 
   printf("Wrote functions dumps:\n");
   printf(" total %d files\n", total_files);
@@ -332,27 +328,25 @@ void ObjectFileDB::find_code() {
   LinkedObjectFile::Stats combined_stats;
   Timer timer;
 
-  for (auto& kv : obj_files_by_name) {
-    for (auto& obj : kv.second) {
-      //      printf("fc %s\n", obj.record.to_unique_name().c_str());
-      obj.linked_data.find_code();
-      obj.linked_data.find_functions();
-      obj.linked_data.disassemble_functions();
+  for_each_obj([&](ObjectFileData& obj) {
+    //      printf("fc %s\n", obj.record.to_unique_name().c_str());
+    obj.linked_data.find_code();
+    obj.linked_data.find_functions();
+    obj.linked_data.disassemble_functions();
 
-      if (get_config().game_version == 1 || obj.record.to_unique_name() != "effect-control-v0") {
-        obj.linked_data.process_fp_relative_links();
-      } else {
-        printf("skipping process_fp_relative_links in %s\n", obj.record.to_unique_name().c_str());
-      }
-
-      auto& obj_stats = obj.linked_data.stats;
-      if (obj_stats.code_bytes / 4 > obj_stats.decoded_ops) {
-        printf("Failed to decode all in %s (%d / %d)\n", obj.record.to_unique_name().c_str(),
-               obj_stats.decoded_ops, obj_stats.code_bytes / 4);
-      }
-      combined_stats.add(obj.linked_data.stats);
+    if (get_config().game_version == 1 || obj.record.to_unique_name() != "effect-control-v0") {
+      obj.linked_data.process_fp_relative_links();
+    } else {
+      printf("skipping process_fp_relative_links in %s\n", obj.record.to_unique_name().c_str());
     }
-  }
+
+    auto& obj_stats = obj.linked_data.stats;
+    if (obj_stats.code_bytes / 4 > obj_stats.decoded_ops) {
+      printf("Failed to decode all in %s (%d / %d)\n", obj.record.to_unique_name().c_str(),
+             obj_stats.decoded_ops, obj_stats.code_bytes / 4);
+    }
+    combined_stats.add(obj.linked_data.stats);
+  });
 
   printf("Found code:\n");
   printf(" code %.3f MB\n", combined_stats.code_bytes / (float)(1 << 20));
@@ -377,17 +371,15 @@ void ObjectFileDB::find_and_write_scripts(const std::string& output_dir) {
   Timer timer;
   std::string all_scripts;
 
-  for (auto& kv : obj_files_by_name) {
-    for (auto& obj : kv.second) {
-      auto scripts = obj.linked_data.print_scripts();
-      if (!scripts.empty()) {
-        all_scripts += ";--------------------------------------\n";
-        all_scripts += "; " + obj.record.to_unique_name() + "\n";
-        all_scripts += ";---------------------------------------\n";
-        all_scripts += scripts;
-      }
+  for_each_obj([&](ObjectFileData& obj) {
+    auto scripts = obj.linked_data.print_scripts();
+    if (!scripts.empty()) {
+      all_scripts += ";--------------------------------------\n";
+      all_scripts += "; " + obj.record.to_unique_name() + "\n";
+      all_scripts += ";---------------------------------------\n";
+      all_scripts += scripts;
     }
-  }
+  });
 
   auto file_name = combine_path(output_dir, "all_scripts.lisp");
   write_text_file(file_name, all_scripts);
@@ -414,7 +406,18 @@ void ObjectFileDB::analyze_functions() {
     printf("Found %d basic blocks in %.3f ms\n", total_basic_blocks, timer.getMs());
   }
 
+  {
+    timer.start();
+    for_each_obj([&](ObjectFileData& data) {
+      if(data.linked_data.segments == 3) {
+        // the top level segment should have a single function
+        assert(data.linked_data.functions_by_seg.at(2).size() == 1);
 
-
-
+        auto& func = data.linked_data.functions_by_seg.at(2).front();
+        assert(func.guessed_name.empty());
+        func.guessed_name = "(top-level-init)";
+        func.find_global_function_defs(data.linked_data);
+      }
+    });
+  }
 }

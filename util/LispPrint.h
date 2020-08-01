@@ -90,8 +90,6 @@ class Form {
   std::string toStringPretty(int indent = 0, int line_length = 80);
   void toTokenList(std::vector<FormToken>& tokens);
 
-  void free();
-
  private:
   void buildStringSimple(std::string& str);
 };

@@ -76,19 +76,36 @@ void InstructionAtom::set_sym(std::string _sym) {
   sym = std::move(_sym);
 }
 
+/*!
+ * Get as register, or error if not a register.
+ */
 Register InstructionAtom::get_reg() const {
   assert(kind == REGISTER);
   return reg;
 }
 
+/*!
+ * Get as integer immediate, or error if not an integer immediate.
+ */
 int32_t InstructionAtom::get_imm() const {
   assert(kind == IMM);
   return imm;
 }
 
+/*!
+ * Get as label index, or error if not a label.
+ */
 int InstructionAtom::get_label() const {
   assert(kind == LABEL);
   return label_id;
+}
+
+/*!
+ * Get as symbol, or error if not a symbol.
+ */
+std::string InstructionAtom::get_sym() const {
+  assert(kind == IMM_SYM);
+  return sym;
 }
 
 /*!
@@ -190,7 +207,7 @@ std::string Instruction::to_string(const LinkedObjectFile& file) const {
 }
 
 /*!
- * Was this instruction succesfully decoded?
+ * Was this instruction successfully decoded?
  */
 bool Instruction::is_valid() const {
   return kind != InstructionKind::UNKNOWN;
@@ -225,25 +242,40 @@ InstructionAtom& Instruction::get_imm_src() {
   return src[0];
 }
 
+/*!
+ * Try to find a src which is an integer immediate, and return it as an integer.
+ */
 int32_t Instruction::get_imm_src_int() {
   return get_imm_src().get_imm();
 }
 
+/*!
+ * Safe get dst atom
+ */
 InstructionAtom& Instruction::get_dst(size_t idx) {
   assert(idx < n_dst);
   return dst[idx];
 }
 
+/*!
+ * Safe get src atom
+ */
 InstructionAtom& Instruction::get_src(size_t idx) {
   assert(idx < n_src);
   return src[idx];
 }
 
+/*!
+ * Safe get dst atom
+ */
 const InstructionAtom& Instruction::get_dst(size_t idx) const {
   assert(idx < n_dst);
   return dst[idx];
 }
 
+/*!
+ * Safe get src atom
+ */
 const InstructionAtom& Instruction::get_src(size_t idx) const {
   assert(idx < n_src);
   return src[idx];

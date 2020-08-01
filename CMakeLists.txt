@@ -41,5 +41,11 @@ add_executable(jak_disassembler
     util/LispPrint.cpp
     util/Timer.cpp
     Function/BasicBlocks.cpp
-    Disasm/InstructionMatching.cpp)
+    Disasm/InstructionMatching.cpp
+    TypeSystem/GoalType.cpp
+    TypeSystem/GoalFunction.cpp
+    TypeSystem/GoalSymbol.cpp
+    TypeSystem/TypeInfo.cpp
+    TypeSystem/TypeSpec.cpp)
+
 target_include_directories(jak_disassembler PRIVATE .)

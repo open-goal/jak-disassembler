@@ -2,6 +2,8 @@
 #include <vector>
 #include "Function.h"
 #include "Disasm/InstructionMatching.h"
+#include "LinkedObjectFile.h"
+#include "TypeSystem/TypeInfo.h"
 
 namespace {
 std::vector<Register> gpr_backups = {make_gpr(Reg::GP), make_gpr(Reg::S5), make_gpr(Reg::S4),
@@ -46,8 +48,8 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
   int idx = 1;
 
   // first we look for daddiu sp, sp, -x to determine how much stack is used
-  if (is_gpr_2_imm(instructions.at(idx), InstructionKind::DADDIU, make_gpr(Reg::SP),
-                   make_gpr(Reg::SP), {})) {
+  if (is_gpr_2_imm_int(instructions.at(idx), InstructionKind::DADDIU, make_gpr(Reg::SP),
+                       make_gpr(Reg::SP), {})) {
     prologue.total_stack_usage = -instructions.at(idx).get_imm_src_int();
     idx++;
   } else {
@@ -76,7 +78,7 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
     if (is_no_link_gpr_store(instructions.at(idx), 8, Register(Reg::GPR, Reg::RA), {},
                              Register(Reg::GPR, Reg::SP))) {
       prologue.ra_backed_up = true;
-      prologue.ra_backup_offset = get_gpr_store_offset(instructions.at(idx));
+      prologue.ra_backup_offset = get_gpr_store_offset_as_int(instructions.at(idx));
       assert(prologue.ra_backup_offset == 0);
       idx++;
     }
@@ -99,7 +101,7 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
     if (is_no_link_gpr_store(instructions.at(idx), 8, Register(Reg::GPR, Reg::FP), {},
                              Register(Reg::GPR, Reg::SP))) {
       prologue.fp_backed_up = true;
-      prologue.fp_backup_offset = get_gpr_store_offset(instructions.at(idx));
+      prologue.fp_backup_offset = get_gpr_store_offset_as_int(instructions.at(idx));
       // in Jak 1 like we never backup fp unless ra is also backed up, so the offset is always 8.
       // but it seems like it could be possible to do one without the other?
       assert(prologue.fp_backup_offset == 8);
@@ -147,9 +149,9 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
     }
 
     if (n_gpr_backups) {
-      prologue.gpr_backup_offset = get_gpr_store_offset(instructions.at(idx));
+      prologue.gpr_backup_offset = get_gpr_store_offset_as_int(instructions.at(idx));
       for (int i = 0; i < n_gpr_backups; i++) {
-        int this_offset = get_gpr_store_offset(instructions.at(idx + i));
+        int this_offset = get_gpr_store_offset_as_int(instructions.at(idx + i));
         auto this_reg = instructions.at(idx + i).get_src(0).get_reg();
         assert(this_offset == prologue.gpr_backup_offset + 16 * i);
         if (this_reg != get_expected_gpr_backup(i, n_gpr_backups)) {
@@ -169,7 +171,7 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
     int fpr_idx = idx;
     if (!expect_nothing_after_gprs) {
       // FPR backups
-      while (is_no_link_fpr_store(instructions.at(fpr_idx), {}, {}, make_gpr(Reg::SP))) {
+      while (is_no_ll_fpr_store(instructions.at(fpr_idx), {}, {}, make_gpr(Reg::SP))) {
         // auto store_reg = instructions.at(gpr_idx).get_src(0).get_reg();
         n_fpr_backups++;
         fpr_idx++;
@@ -282,6 +284,9 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
   check_epilogue(file);
 }
 
+/*!
+ * Print info about the prologue and stack.
+ */
 std::string Function::Prologue::to_string(int indent) const {
   char buff[512];
   char* buff_ptr = buff;
@@ -310,7 +315,11 @@ std::string Function::Prologue::to_string(int indent) const {
   return {buff};
 }
 
+/*!
+ * Check that the epilogue matches the prologue.
+ */
 void Function::check_epilogue(const LinkedObjectFile& file) {
+  (void)file;
   if (!prologue.decoded || suspected_asm) {
     printf("not decoded, or suspected asm, skipping epilogue\n");
     return;
@@ -340,8 +349,8 @@ void Function::check_epilogue(const LinkedObjectFile& file) {
       warnings += "Double Return Epilogue - this is probably an ASM function\n";
     }
     // delay slot should be daddiu sp, sp, offset
-    assert(is_gpr_2_imm(instructions.at(idx), InstructionKind::DADDIU, make_gpr(Reg::SP),
-                        make_gpr(Reg::SP), prologue.total_stack_usage));
+    assert(is_gpr_2_imm_int(instructions.at(idx), InstructionKind::DADDIU, make_gpr(Reg::SP),
+                            make_gpr(Reg::SP), prologue.total_stack_usage));
     idx--;
   } else {
     // delay slot is always daddu sp, sp, r0...
@@ -359,8 +368,8 @@ void Function::check_epilogue(const LinkedObjectFile& file) {
     int gpr_idx = prologue.n_gpr_backup - (1 + i);
     const auto& expected_reg = gpr_backups.at(gpr_idx);
     auto expected_offset = prologue.gpr_backup_offset + 16 * i;
-    assert(is_no_link_gpr_load(instructions.at(idx), 16, true, expected_reg, expected_offset,
-                               make_gpr(Reg::SP)));
+    assert(is_no_ll_gpr_load(instructions.at(idx), 16, true, expected_reg, expected_offset,
+                             make_gpr(Reg::SP)));
     idx--;
   }
 
@@ -369,22 +378,22 @@ void Function::check_epilogue(const LinkedObjectFile& file) {
     int fpr_idx = prologue.n_fpr_backup - (1 + i);
     const auto& expected_reg = fpr_backups.at(fpr_idx);
     auto expected_offset = prologue.fpr_backup_offset + 4 * i;
-    assert(is_no_link_fpr_load(instructions.at(idx), expected_reg, expected_offset,
-                               make_gpr(Reg::SP)));
+    assert(
+        is_no_ll_fpr_load(instructions.at(idx), expected_reg, expected_offset, make_gpr(Reg::SP)));
     idx--;
   }
 
   // restore fp
   if (prologue.fp_backed_up) {
-    assert(is_no_link_gpr_load(instructions.at(idx), 8, true, make_gpr(Reg::FP),
-                               prologue.fp_backup_offset, make_gpr(Reg::SP)));
+    assert(is_no_ll_gpr_load(instructions.at(idx), 8, true, make_gpr(Reg::FP),
+                             prologue.fp_backup_offset, make_gpr(Reg::SP)));
     idx--;
   }
 
   // restore ra
   if (prologue.ra_backed_up) {
-    assert(is_no_link_gpr_load(instructions.at(idx), 8, true, make_gpr(Reg::RA),
-                               prologue.ra_backup_offset, make_gpr(Reg::SP)));
+    assert(is_no_ll_gpr_load(instructions.at(idx), 8, true, make_gpr(Reg::RA),
+                             prologue.ra_backup_offset, make_gpr(Reg::SP)));
     idx--;
   }
 
@@ -393,4 +402,66 @@ void Function::check_epilogue(const LinkedObjectFile& file) {
   basic_blocks.back().end_word = idx + 1;
   prologue.epilogue_ok = true;
   epilogue_start = idx + 1;
+}
+
+/*!
+ * Look through all blocks in this function for storing the address of a function into a symbol.
+ * This indicates the stored function address belongs to a global function with the same name as
+ * the symbol.
+ *
+ * Updates the guessed_name of the function and updates type_info
+ */
+void Function::find_global_function_defs(LinkedObjectFile& file) {
+  for (auto& block : basic_blocks) {
+    int label_id = -1;
+    Register reg;
+
+    int state = 0;
+
+    for (int idx = block.start_word; idx < block.end_word; idx++) {
+      const auto& instr = instructions.at(idx);
+
+      // look for LUIs always
+      if (instr.kind == InstructionKind::LUI && instr.get_src(0).kind == InstructionAtom::LABEL) {
+        state = 1;
+        reg = instr.get_dst(0).get_reg();
+        label_id = instr.get_src(0).get_label();
+        assert(label_id != -1);
+        continue;
+      }
+
+      if (state == 1) {
+        // Look for ORI
+        if (instr.kind == InstructionKind::ORI && instr.get_src(0).get_reg() == reg &&
+            instr.get_src(1).get_label() == label_id) {
+          state = 2;
+          reg = instr.get_dst(0).get_reg();
+          continue;
+        } else {
+          state = 0;
+        }
+      }
+
+      if (state == 2) {
+        // Look for SW
+        if (instr.kind == InstructionKind::SW && instr.get_src(0).get_reg() == reg &&
+            instr.get_src(2).get_reg() == make_gpr(Reg::S7)) {
+          // done!
+          std::string name = instr.get_src(1).get_sym();
+          if(!file.label_points_to_code(label_id)) {
+//            printf("discard as not code: %s\n", name.c_str());
+          } else {
+            auto& func = file.get_function_at_label(label_id);
+            assert(func.guessed_name.empty());
+            func.guessed_name = name;
+            get_type_info().inform_symbol(name, TypeSpec("function"));
+            // todo - inform function.
+          }
+
+        } else {
+          state = 0;
+        }
+      }
+    }
+  }
 }

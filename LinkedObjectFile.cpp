@@ -8,6 +8,7 @@
 #include <cstring>
 #include <numeric>
 #include "Disasm/InstructionDecode.h"
+#include "config.h"
 
 /*!
  * Set the number of segments in this object file.
@@ -67,6 +68,34 @@ int LinkedObjectFile::get_label_at(int seg, int offset) const {
   return kv->second;
 }
 
+/*!
+ * Does this label point to code? Can point to the middle of a function, or the start of a function.
+ */
+bool LinkedObjectFile::label_points_to_code(int label_id) const {
+  auto& label = labels.at(label_id);
+  auto data_start = int(offset_of_data_zone_by_seg.at(label.target_segment)) * 4;
+  return label.offset < data_start;
+}
+
+/*!
+ * Get the function starting at this label, or error if there is none.
+ */
+Function& LinkedObjectFile::get_function_at_label(int label_id) {
+  auto& label = labels.at(label_id);
+  for (auto& func : functions_by_seg.at(label.target_segment)) {
+    // + 4 to skip past type tag to the first word, which is were the label points.
+    if (func.start_word * 4 + 4 == label.offset) {
+      return func;
+    }
+  }
+
+  assert(false);
+  return functions_by_seg.front().front(); // to avoid error
+}
+
+/*!
+ * Get the name of the label.
+ */
 std::string LinkedObjectFile::get_label_name(int label_id) const {
   return labels.at(label_id).name;
 }
@@ -475,6 +504,7 @@ void LinkedObjectFile::process_fp_relative_links() {
  * Print disassembled functions and data segments.
  */
 std::string LinkedObjectFile::print_disassembly() {
+  bool write_hex = get_config().write_hex_near_instructions;
   std::string result;
 
   assert(segments <= 3);
@@ -482,12 +512,13 @@ std::string LinkedObjectFile::print_disassembly() {
     // segment header
     result += ";------------------------------------------\n;  ";
     result += segment_names[seg];
-    result += "\n;------------------------------------------\n";
+    result += "\n;------------------------------------------\n\n";
 
     // functions
     for (auto& func : functions_by_seg.at(seg)) {
-      result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
+      result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
       result += "; .function " + func.guessed_name + "\n";
+      result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
       result += func.prologue.to_string(2) + "\n";
 
       // print each instruction in the function.
@@ -511,13 +542,17 @@ std::string LinkedObjectFile::print_disassembly() {
         auto& instr = func.instructions.at(i);
         std::string line = "    " + instr.to_string(*this);
 
-        if (line.length() < 60) {
-          line.append(60 - line.length(), ' ');
+        if (write_hex) {
+          if (line.length() < 60) {
+            line.append(60 - line.length(), ' ');
+          }
+          result += line;
+          result += " ;;";
+          auto& word = words_by_seg[seg].at(func.start_word + i);
+          append_word_to_string(result, word);
+        } else {
+          result += line + "\n";
         }
-        result += line;
-        result += " ;;";
-        auto& word = words_by_seg[seg].at(func.start_word + i);
-        append_word_to_string(result, word);
 
         if (in_delay_slot) {
           result += "\n";
@@ -528,6 +563,7 @@ std::string LinkedObjectFile::print_disassembly() {
           in_delay_slot = true;
         }
       }
+      result += "\n";
       //
       //      int bid = 0;
       //      for(auto& bblock : func.basic_blocks) {
@@ -707,6 +743,9 @@ std::shared_ptr<Form> LinkedObjectFile::to_form_script(int seg,
   return result;
 }
 
+/*!
+ * Is the thing pointed to a string?
+ */
 bool LinkedObjectFile::is_string(int seg, int byte_idx) {
   if (byte_idx % 4) {
     return false;  // must be aligned pointer.

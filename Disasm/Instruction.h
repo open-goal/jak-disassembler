@@ -37,6 +37,7 @@ struct InstructionAtom {
   Register get_reg() const;
   int32_t get_imm() const;
   int get_label() const;
+  std::string get_sym() const;
 
   std::string to_string(const LinkedObjectFile& file) const;
 

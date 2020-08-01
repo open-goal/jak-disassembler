@@ -8,6 +8,7 @@
 #ifndef JAK2_DISASSEMBLER_OBJECTFILEDB_H
 #define JAK2_DISASSEMBLER_OBJECTFILEDB_H
 
+#include <cassert>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -20,7 +21,7 @@ struct ObjectFileRecord {
   std::string name;
   int version = -1;
   uint32_t hash = 0;
-  std::string to_unique_name();
+  std::string to_unique_name() const;
 };
 
 /*!
@@ -54,12 +55,13 @@ class ObjectFileDB {
                         const std::string& dgo_name);
 
   /*!
-   * Apply f to all ObjectFileData's
+   * Apply f to all ObjectFileData's. Does it in the right order.
    */
   template <typename Func>
   void for_each_obj(Func f) {
-    for (auto& kv : obj_files_by_name) {
-      for (auto& obj : kv.second) {
+    assert(obj_files_by_name.size() == obj_file_order.size());
+    for(const auto& name : obj_file_order) {
+      for(auto& obj : obj_files_by_name.at(name)) {
         f(obj);
       }
     }
@@ -68,6 +70,7 @@ class ObjectFileDB {
   /*!
    * Apply f to all functions
    * takes (Function, segment, linked_data)
+   * Does it in the right order.
    */
   template <typename Func>
   void for_each_function(Func f) {
@@ -87,8 +90,9 @@ class ObjectFileDB {
 
   // Danger: after adding all object files, we assume that the vector never reallocates.
   std::unordered_map<std::string, std::vector<ObjectFileData>> obj_files_by_name;
-
   std::unordered_map<std::string, std::vector<ObjectFileRecord>> obj_files_by_dgo;
+
+  std::vector<std::string> obj_file_order;
 
   struct {
     uint32_t total_dgo_bytes = 0;

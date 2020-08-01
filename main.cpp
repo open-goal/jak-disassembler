@@ -4,6 +4,7 @@
 #include "ObjectFileDB.h"
 #include "config.h"
 #include "util/FileIO.h"
+#include "TypeSystem/TypeInfo.h"
 
 int main(int argc, char** argv) {
   printf("Jak Disassembler\n");
@@ -44,6 +45,8 @@ int main(int argc, char** argv) {
   if (get_config().write_disassembly) {
     db.write_disassembly(out_folder, get_config().disassemble_objects_without_functions);
   }
+
+  printf("%s\n", get_type_info().get_summary().c_str());
 
   return 0;
 }

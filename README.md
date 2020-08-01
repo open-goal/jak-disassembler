@@ -106,8 +106,9 @@ Stack variables : yes, 112 bytes at sp + 16
 Saved gprs: gp s5 s4 s3
 Saved fprs: f30 f28 f26
 ```
+A similar process is done for the epilogue, and it is checked against the prologue.
 
-The prologue is removed from the first basic block.
+The prologue is removed from the first basic block and the epilogue + alignment padding is removed from the last one.
 
 # Documentation of Planned Steps that are not implemented
 Currently the focus is to get these working for Jak 1. But it shouldn't be much extra work to support Jak 2/3.

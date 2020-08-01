@@ -4,10 +4,11 @@
  * This implements a decoder for the GOAL linking format.
  */
 
-#include "LinkedObjectFileCreation.h"
 #include <cassert>
 #include <cstring>
+#include "LinkedObjectFileCreation.h"
 #include "config.h"
+#include "TypeSystem/TypeInfo.h"
 
 // There are three link versions:
 // V2 - not really in use anymore, but V4 will resue logic from it (and the game didn't rename the
@@ -86,6 +87,7 @@ static uint32_t c_symlink2(LinkedObjectFile& f,
                            SymbolLinkKind kind,
                            const char* name,
                            int seg_id) {
+  get_type_info().inform_symbol_with_no_type_info(name);
   auto initial_offset = code_ptr_offset;
   do {
     auto table_value = data.at(link_ptr_offset);
@@ -128,6 +130,7 @@ static uint32_t c_symlink2(LinkedObjectFile& f,
           word_kind = LinkedWord::EMPTY_PTR;
           break;
         case SymbolLinkKind::TYPE:
+          get_type_info().inform_type(name);
           word_kind = LinkedWord::TYPE_PTR;
           break;
         default:
@@ -160,6 +163,7 @@ static uint32_t c_symlink3(LinkedObjectFile& f,
                            SymbolLinkKind kind,
                            const char* name,
                            int seg) {
+  get_type_info().inform_symbol_with_no_type_info(name);
   auto initial_offset = code_ptr;
   do {
     // seek, with a variable length encoding that sucks.
@@ -183,6 +187,7 @@ static uint32_t c_symlink3(LinkedObjectFile& f,
           word_kind = LinkedWord::EMPTY_PTR;
           break;
         case SymbolLinkKind::TYPE:
+          get_type_info().inform_type(name);
           word_kind = LinkedWord::TYPE_PTR;
           break;
         default:
@@ -735,6 +740,7 @@ static void link_v3(LinkedObjectFile& f,
         // methods todo
 
         s_name = (const char*)(&data.at(link_ptr));
+        get_type_info().inform_type_method_count(s_name, reloc & 0x7f);
         kind = SymbolLinkKind::TYPE;
       }
 

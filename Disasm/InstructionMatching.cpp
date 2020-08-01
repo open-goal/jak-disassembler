@@ -1,24 +1,14 @@
+/*!
+ * @file InstructionMatching.cpp
+ * Utilities for checking if an instruction matches some criteria.
+ */
+
 #include <cassert>
 #include "InstructionMatching.h"
 
-bool is_no_link_instr(const Instruction& instr, MatchParam<InstructionKind> kind) {
-  if (kind == instr.kind) {
-    for (int i = 0; i < instr.n_src; i++) {
-      if (instr.src[i].is_link_or_label()) {
-        return false;
-      }
-    }
-
-    for (int i = 0; i < instr.n_dst; i++) {
-      if (instr.dst[i].is_link_or_label()) {
-        return false;
-      }
-    }
-    return true;
-  }
-  return false;
-}
-
+/*!
+ * Check if the given instruction stores a GPR with the specified parameters.
+ */
 bool is_no_link_gpr_store(const Instruction& instr,
                           MatchParam<int> size,
                           MatchParam<Register> src,
@@ -69,12 +59,19 @@ bool is_no_link_gpr_store(const Instruction& instr,
          dest == instr.src[2].get_reg();
 }
 
-bool is_no_link_gpr_load(const Instruction& instr,
-                         MatchParam<int> size,
-                         MatchParam<bool> is_signed,
-                         MatchParam<Register> dst_reg,
-                         MatchParam<int> offset,
-                         MatchParam<Register> mem_reg) {
+/*!
+ * Check if the given instruction loads a GPR with the specified parameters.
+ * LD and LQ count as signed, unsigned, and "wildcard signed" loads.
+ * LWL/LWR/LDL/LDR will never match.
+ *
+ * "no ll" means no link or label
+ */
+bool is_no_ll_gpr_load(const Instruction& instr,
+                       MatchParam<int> size,
+                       MatchParam<bool> is_signed,
+                       MatchParam<Register> dst_reg,
+                       MatchParam<int> offset,
+                       MatchParam<Register> mem_reg) {
   // match the opcode
   if (!size.is_wildcard) {
     if (is_signed.is_wildcard) {
@@ -182,18 +179,25 @@ bool is_no_link_gpr_load(const Instruction& instr,
          mem_reg == instr.get_src(1).get_reg();
 }
 
-bool is_no_link_fpr_store(const Instruction& instr,
-                          MatchParam<Register> src,
-                          MatchParam<int> offset,
-                          MatchParam<Register> dest) {
+/*!
+ * Check if the instruction stores an FPR (SWC1)
+ * "no ll" means that there is no label or linking involved.
+ */
+bool is_no_ll_fpr_store(const Instruction& instr,
+                        MatchParam<Register> src,
+                        MatchParam<int> offset,
+                        MatchParam<Register> dest) {
   return instr.kind == InstructionKind::SWC1 && src == instr.src[0].get_reg() &&
          offset == instr.src[1].get_imm() && dest == instr.src[2].get_reg();
 }
-
-bool is_no_link_fpr_load(const Instruction& instr,
-                         MatchParam<Register> dst_reg,
-                         MatchParam<int> offset,
-                         MatchParam<Register> mem_reg) {
+/*!
+ * Check if the instruction loads an FPR (LWC1)
+ * "no ll" means that there is no label or linking involved.
+ */
+bool is_no_ll_fpr_load(const Instruction& instr,
+                       MatchParam<Register> dst_reg,
+                       MatchParam<int> offset,
+                       MatchParam<Register> mem_reg) {
   return instr.kind == InstructionKind::LWC1 && dst_reg == instr.get_dst(0).get_reg() &&
          offset == instr.get_src(0).get_imm() && mem_reg == instr.get_src(1).get_reg();
 }
@@ -210,6 +214,9 @@ auto gpr_all_loads = {InstructionKind::LBU, InstructionKind::LB, InstructionKind
                       InstructionKind::SD,  InstructionKind::SQ};
 }  // namespace
 
+/*!
+ * Is this a GPR store instruction? sb,sh,sw,sd,sq
+ */
 bool is_gpr_store(const Instruction& instr) {
   for (auto x : gpr_stores) {
     if (instr.kind == x) {
@@ -219,6 +226,11 @@ bool is_gpr_store(const Instruction& instr) {
   return false;
 }
 
+/*!
+ * Is this a GPR load instruction?
+ * Only LB/LBU,LH/LHU,LW/LWU,LD,LQ are treated as loads
+ * The LD, LQ opcodes are both signed, unsigned, and "wildcard signed"
+ */
 bool is_gpr_load(const Instruction& instr, MatchParam<bool> is_signed) {
   if (is_signed.is_wildcard) {
     for (auto x : gpr_all_loads) {
@@ -244,12 +256,18 @@ bool is_gpr_load(const Instruction& instr, MatchParam<bool> is_signed) {
   }
 }
 
-int32_t get_gpr_store_offset(const Instruction& instr) {
+/*!
+ * Given a store, get the offset as an integer.
+ */
+int32_t get_gpr_store_offset_as_int(const Instruction& instr) {
   assert(is_gpr_store(instr));
   assert(instr.n_src == 3);
   return instr.src[1].get_imm();
 }
 
+/*!
+ * Match an instruction in the form OP, dst, src0, src1 where all args are registers.
+ */
 bool is_gpr_3(const Instruction& instr,
               MatchParam<InstructionKind> kind,
               MatchParam<Register> dst,
@@ -259,27 +277,43 @@ bool is_gpr_3(const Instruction& instr,
          src0 == instr.get_src(0).get_reg() && src1 == instr.get_src(1).get_reg();
 }
 
-bool is_gpr_2_imm(const Instruction& instr,
-                  MatchParam<InstructionKind> kind,
-                  MatchParam<Register> dst,
-                  MatchParam<Register> src,
-                  MatchParam<int32_t> imm) {
+/*!
+ * Match an instruction in the form OP, dst, src0, src1 where all args are registers, except for
+ * src1, which is an integer.
+ */
+bool is_gpr_2_imm_int(const Instruction& instr,
+                      MatchParam<InstructionKind> kind,
+                      MatchParam<Register> dst,
+                      MatchParam<Register> src,
+                      MatchParam<int32_t> imm) {
   return kind == instr.kind && dst == instr.get_dst(0).get_reg() &&
          src == instr.get_src(0).get_reg() && imm == instr.get_src(1).get_imm();
 }
 
+/*!
+ * Create a Register for a GPR.
+ */
 Register make_gpr(Reg::Gpr gpr) {
   return Register(Reg::GPR, gpr);
 }
 
+/*!
+ * Create a Register for an FPR.
+ */
 Register make_fpr(int fpr) {
   return Register(Reg::FPR, fpr);
 }
 
+/*!
+ * Is this a "nop"?  More specifically, it checks for sll r0, r0, 0, the recommended MIPS nop.
+ */
 bool is_nop(const Instruction& instr) {
-  return is_gpr_2_imm(instr, InstructionKind::SLL, make_gpr(Reg::R0), make_gpr(Reg::R0), 0);
+  return is_gpr_2_imm_int(instr, InstructionKind::SLL, make_gpr(Reg::R0), make_gpr(Reg::R0), 0);
 }
 
+/*!
+ * Is this jr ra?
+ */
 bool is_jr_ra(const Instruction& instr) {
   return instr.kind == InstructionKind::JR && instr.get_src(0).get_reg() == make_gpr(Reg::RA);
 }

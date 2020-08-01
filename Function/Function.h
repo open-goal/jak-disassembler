@@ -9,8 +9,8 @@
 class Function {
  public:
   Function(int _start_word, int _end_word);
-
   void analyze_prologue(const LinkedObjectFile& file);
+  void find_global_function_defs(LinkedObjectFile& file);
 
   int segment = -1;
   int start_word = -1;

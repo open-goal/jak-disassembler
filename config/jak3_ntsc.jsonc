@@ -38,6 +38,7 @@
 
      // to write out disassembled functions in .func files
      "write_disassembly":true,
+     "write_hex_near_instructions":false,
      // if false, skips disassembling object files without functions, as these are usually large and not interesting yet.
      "disassemble_objects_without_functions":false,
 
