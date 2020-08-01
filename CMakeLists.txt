@@ -33,12 +33,10 @@ set(wxUSE_EXCEPTIONS OFF CACHE BOOL "wxUSE_EXCEPTIONS" FORCE)
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/wxWidgets" EXCLUDE_FROM_ALL)
 
-add_executable(
-	jak2_disassembler
-    util/LispPrint.cpp
-	main.cpp
-    ObjectFileDB.cpp
-    Disasm/Instruction.cpp
+set(commonSources
+	util/LispPrint.cpp
+	ObjectFileDB.cpp
+	Disasm/Instruction.cpp
     Disasm/InstructionDecode.cpp
     Disasm/OpcodeInfo.cpp
     Disasm/Register.cpp
@@ -48,13 +46,28 @@ add_executable(
     util/FileIO.cpp
     minilzo/minilzo.c
     game_version.cpp
-    game_version.h
     util/LispPrint.cpp
     util/LispPrint.h
-    util/Timer.cpp "util/Log.h")
+    util/Timer.cpp
+	Api.cpp)
+
+set(commonHeaders
+	LinkedObjectFile.h
+	Disasm/Instruction.h
+	util/Log.h
+	game_version.h
+	Api.h)
+
+add_executable(
+	jak2_disassembler
+    ${commonSources}
+	${commonHeaders}
+	main.cpp)
 target_include_directories(jak2_disassembler PRIVATE .)
 
 add_executable(jak_disasm_gui WIN32
+	${commonSources}
+	${commonHeaders}
 	gui/App.cpp
 	gui/App.h
 	gui/MainFrame.cpp
@@ -65,3 +78,4 @@ add_executable(jak_disasm_gui WIN32
 # so maybe just some CMake flags to compile on each platform? (this manifest is for 64 bit as well)
 target_sources(jak_disasm_gui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/wxWidgets/include/wx/msw/amd64_dpi_aware.manifest")
 target_link_libraries(jak_disasm_gui PRIVATE wxgl wxcore wxbase)
+target_include_directories(jak_disasm_gui PRIVATE .)

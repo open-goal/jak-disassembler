@@ -5,6 +5,8 @@
 #include "wx/sizer.h"
 #include "wx/stattext.h"
 
+#include "Api.h"
+
 MainFrame::MainFrame(wxWindow* parent,
                      wxWindowID id,
                      const wxString& title,
@@ -49,6 +51,11 @@ MainFrame::MainFrame(wxWindow* parent,
 
   setProperties();
   createLayout();
+
+  std::vector<std::string> ye;
+  ye.push_back("C:\\Users\\xtvas\\Repositories\\jak2-disassembler\\test\\COMMON.CGO");
+
+  Api::disassemble("C:\\Users\\xtvas\\Repositories\\jak2-disassembler\\test\\out", ye);
 }
 
 void MainFrame::setProperties() {
@@ -160,6 +167,7 @@ wxPanel* MainFrame::createCompressionTab() {
   compressionLogContainer->Add(compressionLogs, 0, wxEXPAND | wxLEFT, 5);
   compressionSizer->Add(compressionLogContainer, 2, wxEXPAND, 0);
   tabCompression->SetSizer(compressionSizer);
+  tabCompression->Disable();
   return tabCompression;
 }
 

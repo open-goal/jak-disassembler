@@ -7,3 +7,4 @@ in_jak1/*
 .vs/
 *.wxg.bak
 gui/out/*
+test/

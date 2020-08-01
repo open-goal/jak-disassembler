@@ -24,25 +24,32 @@ class MainFrame : public wxFrame {
   wxPanel* createAssemblyTab();
   wxPanel* createVerificationTab();
 
+  std::vector<wxString> inputPaths;
+  wxString outputPath;
+  int disassemblyTypeSelection = 0;
+  // TODO - put the selection in an enum or something
+  bool prettyPrint = false;
+  bool goalTranspiling = false;
+
  protected:
-  wxRadioBox* disassemblyInputTypeSelect;
-  wxButton* disassemblyInputBrowse;
-  wxButton* disassemblyOutputBrowse;
-  wxCheckBox* prettyPrintCheckbox;
-  wxCheckBox* goalTranspileCheckbox;
-  wxButton* disassembleButton;
-  wxGauge* disassemblyProgressBar;
-  wxPanel* tabDissassembly;
-  wxRadioBox* compressionInputTypeSelect;
+  wxButton* compressButton;
   wxButton* compressionInputBrowse;
   wxButton* compressionOutputBrowse;
   wxButton* decompressButton;
-  wxButton* compressButton;
+  wxButton* disassembleButton;
+  wxButton* disassemblyInputBrowse;
+  wxButton* disassemblyOutputBrowse;
+  wxCheckBox* goalTranspileCheckbox;
+  wxCheckBox* prettyPrintCheckbox;
   wxGauge* compressionProgressBar;
-  wxPanel* tabCompression;
-  wxPanel* tabAssembly;
-  wxPanel* tabVerification;
+  wxGauge* disassemblyProgressBar;
   wxNotebook* tabWindow;
+  wxPanel* tabAssembly;
+  wxPanel* tabCompression;
+  wxPanel* tabDissassembly;
+  wxPanel* tabVerification;
+  wxRadioBox* compressionInputTypeSelect;
+  wxRadioBox* disassemblyInputTypeSelect;
 };
 
 #endif
