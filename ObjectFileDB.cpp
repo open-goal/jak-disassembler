@@ -14,6 +14,7 @@
 #include "util/BinaryReader.h"
 #include "util/FileIO.h"
 #include "util/Timer.h"
+#include "Function/BasicBlocks.h"
 
 /*!
  * Get a unique name for this object file.
@@ -394,4 +395,22 @@ void ObjectFileDB::find_and_write_scripts(const std::string& output_dir) {
   printf("Found scripts:\n");
   printf(" total %.3f ms\n", timer.getMs());
   printf("\n");
+}
+
+void ObjectFileDB::analyze_functions() {
+  printf("- Analyzing Functions...\n");
+  Timer timer;
+
+  if (get_config().find_basic_blocks) {
+    int total_basic_blocks = 0;
+    for_each_function([&](Function& func, int segment_id, ObjectFileData& data) {
+      auto blocks = find_blocks_in_function(data.linked_data, segment_id, func);
+      total_basic_blocks += blocks.size();
+      func.basic_blocks = blocks;
+    });
+
+    printf("Found %d basic blocks in %.3f ms\n", total_basic_blocks, timer.getMs());
+  }
+
+  timer.start();
 }

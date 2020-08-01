@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include "Disasm/Instruction.h"
+#include "BasicBlocks.h"
 
 class Function {
 public:
@@ -16,6 +17,7 @@ public:
   std::string guessed_name;
 
   std::vector<Instruction> instructions;
+  std::vector<BasicBlock> basic_blocks;
 
   struct Prologue {
     bool decoded = false;

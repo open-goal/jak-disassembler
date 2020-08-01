@@ -43,5 +43,7 @@ int main(int argc, char** argv) {
     db.write_disassembly(out_folder, get_config().disassemble_objects_without_functions);
   }
 
+  db.analyze_functions();
+
   return 0;
 }

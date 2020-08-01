@@ -36,8 +36,9 @@ struct InstructionAtom {
 
   Register get_reg() const;
   int32_t get_imm() const;
+  int get_label() const;
 
-  std::string to_string(LinkedObjectFile& file) const;
+  std::string to_string(const LinkedObjectFile& file) const;
 
  private:
   int32_t imm;
@@ -53,7 +54,7 @@ class Instruction {
  public:
   InstructionKind kind = InstructionKind::UNKNOWN;
 
-  std::string to_string(LinkedObjectFile& file) const;
+  std::string to_string(const LinkedObjectFile& file) const;
   bool is_valid() const;
 
   void add_src(InstructionAtom& a);
@@ -68,6 +69,10 @@ class Instruction {
   InstructionAtom dst[MAX_INTRUCTION_DEST];
 
   InstructionAtom& get_imm_src();
+
+  const OpcodeInfo& get_info() const;
+
+  int get_label_target() const;
 
   // extra fields for some COP2 instructions.
   uint8_t cop2_dest = 0xff;  // 0xff indicates "don't print dest"

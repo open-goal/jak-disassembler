@@ -39,5 +39,6 @@ add_executable(jak_disassembler
     third-party/minilzo/minilzo.c
     config.cpp
     util/LispPrint.cpp
-    util/Timer.cpp)
+    util/Timer.cpp
+    Function/BasicBlocks.cpp)
 target_include_directories(jak_disassembler PRIVATE .)

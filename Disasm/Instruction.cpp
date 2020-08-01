@@ -11,7 +11,7 @@
 /*!
  * Convert atom to a string for disassembly.
  */
-std::string InstructionAtom::to_string(LinkedObjectFile& file) const {
+std::string InstructionAtom::to_string(const LinkedObjectFile& file) const {
   switch (kind) {
     case REGISTER:
       return reg.to_string();
@@ -86,10 +86,15 @@ int32_t InstructionAtom::get_imm() const {
   return imm;
 }
 
+int InstructionAtom::get_label() const {
+  assert(kind == LABEL);
+  return label_id;
+}
+
 /*!
  * Convert entire instruction to a string.
  */
-std::string Instruction::to_string(LinkedObjectFile& file) const {
+std::string Instruction::to_string(const LinkedObjectFile& file) const {
   auto& info = gOpcodeInfo[(int)kind];
 
   // the name
@@ -221,4 +226,26 @@ InstructionAtom& Instruction::get_dst(size_t idx) {
 InstructionAtom& Instruction::get_src(size_t idx) {
   assert(idx < n_src);
   return src[idx];
+}
+
+/*!
+ * Get OpcodeInfo for the opcode used in this instruction.
+ */
+const OpcodeInfo& Instruction::get_info() const {
+  return gOpcodeInfo[int(kind)];
+}
+
+/*!
+ * Get the target label for this instruction. If the instruction doesn't have a target label,
+ * return -1.
+ */
+int Instruction::get_label_target() const {
+  int result = -1;
+  for (int i = 0; i < n_src; i++) {
+    if (src[i].kind == InstructionAtom::AtomKind::LABEL) {
+      assert(result == -1);
+      result = src[i].get_label();
+    }
+  }
+  return result;
 }

@@ -21,4 +21,5 @@ void set_config(const std::string& path_to_config_file) {
   gConfig.write_hexdump_on_v3_only = cfg.at("write_hexdump_on_v3_only").get<bool>();
   gConfig.disassemble_objects_without_functions =
       cfg.at("disassemble_objects_without_functions").get<bool>();
+  gConfig.find_basic_blocks = cfg.at("find_basic_blocks").get<bool>();
 }

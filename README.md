@@ -76,9 +76,15 @@ Dumps words in each segment like `hexdump`. There's an option to only run this o
 ## `ObjectFileDB::write_disassembly`
 Like `write_object_file_words`, but code is replaced with disassembly.  There's a config option to avoid running this on object files with no functions, as these are usually large data files which are uninteresting to view as a binary dump and slow to dump.
 
+## Basic Block Finding 
+Look at branch intstructions and their destinations to find all basic blocks.  Implemented in `find_blocks_in_function` as part of `analyze_functions`.  This works for Jak 1, 2 and 3.
+
 
 # Documentation of Planned Steps that are not implemented
 Currently the focus is to get these working for Jak 1. But it shouldn't be much extra work to support Jak 2/3.
+
+## Analyze Functions Prologues and Epilogues
+This will help us find stack variables and make sure that the prologue/epilogue are ignored by the statement generation.
 
 ## Guess Function Names (to be implemented)
 
@@ -103,9 +109,6 @@ Currently the state/behavior stuff isn't well understood, or used in the early i
 
 The majority of GOAL types have a compiler-generated `inpsect` method which prints their fields. We should detect these methods in the previous function name guessing step, and then read through them to determine the data layout of the type.
 
-## Basic Block Finding
-
-We should analyze branch and jump instructions to determine the basic blocks.
 
 ## Control Flow Analysis
 

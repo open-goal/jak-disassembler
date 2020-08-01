@@ -44,6 +44,7 @@ class ObjectFileDB {
 
   void write_object_file_words(const std::string& output_dir, bool dump_v3_only);
   void write_disassembly(const std::string& output_dir, bool disassemble_objects_without_functions);
+  void analyze_functions();
 
  private:
   void get_objs_from_dgo(const std::string& filename);
@@ -51,6 +52,33 @@ class ObjectFileDB {
                         uint8_t* obj_data,
                         uint32_t obj_size,
                         const std::string& dgo_name);
+
+  /*!
+   * Apply f to all ObjectFileData's
+   */
+  template <typename Func>
+  void for_each_obj(Func f) {
+    for (auto& kv : obj_files_by_name) {
+      for (auto& obj : kv.second) {
+        f(obj);
+      }
+    }
+  }
+
+  /*!
+   * Apply f to all functions
+   * takes (Function, segment, linked_data)
+   */
+  template <typename Func>
+  void for_each_function(Func f) {
+    for_each_obj([&](ObjectFileData& data) {
+      for (int i = 0; i < int(data.linked_data.segments); i++) {
+        for (auto& goal_func : data.linked_data.functions_by_seg.at(i)) {
+          f(goal_func, i, data);
+        }
+      }
+    });
+  }
 
   // Danger: after adding all object files, we assume that the vector never reallocates.
   std::unordered_map<std::string, std::vector<ObjectFileData>> obj_files_by_name;

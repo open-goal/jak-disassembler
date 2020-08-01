@@ -35,13 +35,13 @@ public:
   void set_segment_count(int n_segs);
   void push_back_word_to_segment(uint32_t word, int segment);
   int get_label_id_for(int seg, int offset);
-  int get_label_at(int seg, int offset);
+  int get_label_at(int seg, int offset) const;
   bool pointer_link_word(int source_segment, int source_offset, int dest_segment, int dest_offset);
   void pointer_link_split_word(int source_segment, int source_hi_offset, int source_lo_offset, int dest_segment, int dest_offset);
   void symbol_link_word(int source_segment, int source_offset, const char* name, LinkedWord::Kind kind);
   void symbol_link_offset(int source_segment, int source_offset, const char* name);
 
-  std::string get_label_name(int label_id);
+  std::string get_label_name(int label_id) const;
 
   uint32_t set_ordered_label_names();
   void find_code();
@@ -52,9 +52,7 @@ public:
   std::string print_scripts();
   std::string print_disassembly();
   bool has_any_functions();
-
-
-
+  void append_word_to_string(std::string& dest, const LinkedWord& word) const;
 
   struct Stats {
     uint32_t total_code_bytes = 0;
@@ -117,6 +115,7 @@ public:
   std::vector<uint32_t> offset_of_data_zone_by_seg;
 
   std::vector<std::vector<Function>> functions_by_seg;
+  std::vector<Label> labels;
 
 private:
   std::shared_ptr<Form> to_form_script(int seg, int word_idx, std::vector<bool>& seen);
@@ -124,9 +123,9 @@ private:
 
   bool is_empty_list(int seg, int byte_idx);
   bool is_string(int seg, int byte_idx);
-  void append_word_to_string(std::string& dest, const LinkedWord& word);
+
   std::string get_goal_string(int seg, int word_idx);
-  std::vector<Label> labels;
+
   std::vector<std::unordered_map<int, int>> label_per_seg_by_offset;
 };
 
