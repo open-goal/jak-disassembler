@@ -15,9 +15,9 @@ std::vector<BasicBlock> find_blocks_in_function(const LinkedObjectFile& file,
   std::vector<BasicBlock> basic_blocks;
 
   // note - the first word of a function is the "function" type and should go in any basic block
-  std::vector<int> dividers = {func.start_word + 1, func.end_word};
+  std::vector<int> dividers = {0, int(func.instructions.size())};
 
-  for (int i = 1; i < func.end_word - func.start_word; i++) {
+  for (int i = 0; i < int(func.instructions.size()); i++) {
     const auto& instr = func.instructions.at(i);
     const auto& instr_info = instr.get_info();
 
@@ -42,6 +42,7 @@ std::vector<BasicBlock> find_blocks_in_function(const LinkedObjectFile& file,
   for (size_t i = 0; i < dividers.size() - 1; i++) {
     if (dividers[i] != dividers[i + 1]) {
       basic_blocks.emplace_back(dividers[i], dividers[i + 1]);
+      assert(dividers[i] >= 0);
     }
   }
 

@@ -528,6 +528,18 @@ std::string LinkedObjectFile::print_disassembly() {
           in_delay_slot = true;
         }
       }
+      //
+      //      int bid = 0;
+      //      for(auto& bblock : func.basic_blocks) {
+      //        result += "BLOCK " + std::to_string(bid++)+ "\n";
+      //        for(int i = bblock.start_word; i < bblock.end_word; i++) {
+      //          if(i >= 0 && i < func.instructions.size()) {
+      //            result += func.instructions.at(i).to_string(*this) + "\n";
+      //          } else {
+      //            result += "BAD BBLOCK INSTR ID " + std::to_string(i);
+      //          }
+      //        }
+      //      }
     }
 
     // print data

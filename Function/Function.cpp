@@ -54,8 +54,24 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
     prologue.total_stack_usage = 0;
   }
 
+  // don't include type tag
+  prologue_end = 1;
+
   // if we use the stack, we may back up some registers onto it
   if (prologue.total_stack_usage) {
+    // heuristics to detect asm functions
+    {
+      auto& instr = instructions.at(idx);
+      // storing stack pointer on the stack is done by some ASM kernel functions
+      if (instr.kind == InstructionKind::SW && instr.get_src(0).get_reg() == make_gpr(Reg::SP)) {
+        printf("[Warning] Suspected ASM function based on this instruction in prologue: %s\n",
+               instr.to_string(file).c_str());
+        warnings += "Flagged as ASM function because of " + instr.to_string(file) + "\n";
+        suspected_asm = true;
+        return;
+      }
+    }
+
     // ra backup is always first
     if (is_no_link_gpr_store(instructions.at(idx), 8, Register(Reg::GPR, Reg::RA), {},
                              Register(Reg::GPR, Reg::SP))) {
@@ -63,6 +79,20 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
       prologue.ra_backup_offset = get_gpr_store_offset(instructions.at(idx));
       assert(prologue.ra_backup_offset == 0);
       idx++;
+    }
+
+    {
+      auto& instr = instructions.at(idx);
+
+      // storing s7 on the stack is done by interrupt handlers, which we probably don't want to
+      // support
+      if (instr.kind == InstructionKind::SD && instr.get_src(0).get_reg() == make_gpr(Reg::S7)) {
+        printf("[Warning] Suspected ASM function based on this instruction in prologue: %s\n",
+               instr.to_string(file).c_str());
+        warnings += "Flagged as ASM function because of " + instr.to_string(file) + "\n";
+        suspected_asm = true;
+        return;
+      }
     }
 
     // next is fp backup
@@ -106,12 +136,10 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
       // this also happens a few times per game.  this a0/r0 check seems to be all that's needed to
       // avoid false positives here!
       if (store_reg == make_gpr(Reg::A0)) {
-        printf(
-            "[Warning] a0 on stack detected in Function::analyze_prologue, prologue may be "
-            "wrong\n");
-        warnings += "a0 on stack detected, prologue may be wrong\n";
-        expect_nothing_after_gprs = true;
-        break;
+        suspected_asm = true;
+        printf("[Warning] Suspected ASM function because register $a0 was stored on the stack!\n");
+        warnings += "a0 on stack detected, flagging as asm\n";
+        return;
       }
 
       n_gpr_backups++;
@@ -251,36 +279,118 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
   basic_blocks.at(0).start_word = prologue_end;
   prologue.decoded = true;
 
-  check_epilogue();
+  check_epilogue(file);
 }
 
-std::string Function::Prologue::to_string(int indent) {
+std::string Function::Prologue::to_string(int indent) const {
   char buff[512];
   char* buff_ptr = buff;
   std::string indent_str(indent, ' ');
-  if(!decoded) {
+  if (!decoded) {
     return indent_str + "BAD PROLOGUE";
   }
-  buff_ptr += sprintf(buff_ptr, "%sstack: total 0x%02x, fp? %d ra? %d", indent_str.c_str(), total_stack_usage, fp_set, ra_backed_up);
-  if(n_stack_var_bytes) {
-    buff_ptr += sprintf(buff_ptr, "\n%sstack_vars: %d bytes at %d", indent_str.c_str(), n_stack_var_bytes, stack_var_offset);
+  buff_ptr += sprintf(buff_ptr, "%sstack: total 0x%02x, fp? %d ra? %d ep? %d", indent_str.c_str(),
+                      total_stack_usage, fp_set, ra_backed_up, epilogue_ok);
+  if (n_stack_var_bytes) {
+    buff_ptr += sprintf(buff_ptr, "\n%sstack_vars: %d bytes at %d", indent_str.c_str(),
+                        n_stack_var_bytes, stack_var_offset);
   }
-  if(n_gpr_backup) {
+  if (n_gpr_backup) {
     buff_ptr += sprintf(buff_ptr, "\n%sgprs:", indent_str.c_str());
-    for(int i = 0; i < n_gpr_backup; i++) {
+    for (int i = 0; i < n_gpr_backup; i++) {
       buff_ptr += sprintf(buff_ptr, " %s", gpr_backups.at(i).to_string().c_str());
     }
   }
-  if(n_fpr_backup) {
+  if (n_fpr_backup) {
     buff_ptr += sprintf(buff_ptr, "\n%sfprs:", indent_str.c_str());
-    for(int i = 0; i < n_fpr_backup; i++) {
+    for (int i = 0; i < n_fpr_backup; i++) {
       buff_ptr += sprintf(buff_ptr, " %s", fpr_backups.at(i).to_string().c_str());
     }
   }
   return {buff};
 }
 
+void Function::check_epilogue(const LinkedObjectFile& file) {
+  if (!prologue.decoded || suspected_asm) {
+    printf("not decoded, or suspected asm, skipping epilogue\n");
+    return;
+  }
 
-void Function::check_epilogue() {
-  // TODO: double check
+  // start at the end and move up.
+  int idx = int(instructions.size()) - 1;
+
+  // seek past alignment nops
+  while (is_nop(instructions.at(idx))) {
+    idx--;
+  }
+
+  epilogue_end = idx;
+  // stack restore
+  if (prologue.total_stack_usage) {
+    // hack - sometimes an asm function has a compiler inserted jr ra/daddu sp sp r0 that follows
+    // the "true" return.  We really should have this function flagged as asm, but for now, we can
+    // simply skip over the compiler-generated jr ra/daddu sp sp r0.
+    if (is_gpr_3(instructions.at(idx), InstructionKind::DADDU, make_gpr(Reg::SP), make_gpr(Reg::SP),
+                 make_gpr(Reg::R0))) {
+      idx--;
+      assert(is_jr_ra(instructions.at(idx)));
+      idx--;
+      printf(
+          "[Warning] Double Return Epilogue Hack!  This is probably an ASM function in disguise\n");
+      warnings += "Double Return Epilogue - this is probably an ASM function\n";
+    }
+    // delay slot should be daddiu sp, sp, offset
+    assert(is_gpr_2_imm(instructions.at(idx), InstructionKind::DADDIU, make_gpr(Reg::SP),
+                        make_gpr(Reg::SP), prologue.total_stack_usage));
+    idx--;
+  } else {
+    // delay slot is always daddu sp, sp, r0...
+    assert(is_gpr_3(instructions.at(idx), InstructionKind::DADDU, make_gpr(Reg::SP),
+                    make_gpr(Reg::SP), make_gpr(Reg::R0)));
+    idx--;
+  }
+
+  // jr ra
+  assert(is_jr_ra(instructions.at(idx)));
+  idx--;
+
+  // restore gprs
+  for (int i = 0; i < prologue.n_gpr_backup; i++) {
+    int gpr_idx = prologue.n_gpr_backup - (1 + i);
+    const auto& expected_reg = gpr_backups.at(gpr_idx);
+    auto expected_offset = prologue.gpr_backup_offset + 16 * i;
+    assert(is_no_link_gpr_load(instructions.at(idx), 16, true, expected_reg, expected_offset,
+                               make_gpr(Reg::SP)));
+    idx--;
+  }
+
+  // restore fprs
+  for (int i = 0; i < prologue.n_fpr_backup; i++) {
+    int fpr_idx = prologue.n_fpr_backup - (1 + i);
+    const auto& expected_reg = fpr_backups.at(fpr_idx);
+    auto expected_offset = prologue.fpr_backup_offset + 4 * i;
+    assert(is_no_link_fpr_load(instructions.at(idx), expected_reg, expected_offset,
+                               make_gpr(Reg::SP)));
+    idx--;
+  }
+
+  // restore fp
+  if (prologue.fp_backed_up) {
+    assert(is_no_link_gpr_load(instructions.at(idx), 8, true, make_gpr(Reg::FP),
+                               prologue.fp_backup_offset, make_gpr(Reg::SP)));
+    idx--;
+  }
+
+  // restore ra
+  if (prologue.ra_backed_up) {
+    assert(is_no_link_gpr_load(instructions.at(idx), 8, true, make_gpr(Reg::RA),
+                               prologue.ra_backup_offset, make_gpr(Reg::SP)));
+    idx--;
+  }
+
+  assert(!basic_blocks.empty());
+  assert(idx + 1 >= basic_blocks.back().start_word);
+  basic_blocks.back().end_word = idx + 1;
+  prologue.epilogue_ok = true;
+  epilogue_start = idx + 1;
 }

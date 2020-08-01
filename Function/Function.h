@@ -7,14 +7,14 @@
 #include "BasicBlocks.h"
 
 class Function {
-public:
+ public:
   Function(int _start_word, int _end_word);
 
   void analyze_prologue(const LinkedObjectFile& file);
 
   int segment = -1;
   int start_word = -1;
-  int end_word = -1; // not inclusive, but does include padding.
+  int end_word = -1;  // not inclusive, but does include padding.
 
   std::string guessed_name;
 
@@ -26,10 +26,13 @@ public:
   int prologue_start = -1;
   int prologue_end = -1;
 
+  int epilogue_start = -1;
+  int epilogue_end = -1;
+
   std::string warnings;
 
   struct Prologue {
-    bool decoded = false; // have we removed the prologue from basic blocks?
+    bool decoded = false;  // have we removed the prologue from basic blocks?
     int total_stack_usage = -1;
 
     // ra/fp are treated differently from other register backups
@@ -50,15 +53,16 @@ public:
     int n_stack_var_bytes = 0;
     int stack_var_offset = -1;
 
-    std::string to_string(int indent = 0);
+    bool epilogue_ok = false;
+
+    std::string to_string(int indent = 0) const;
 
   } prologue;
 
   bool uses_fp_register = false;
 
  private:
-  void check_epilogue();
+  void check_epilogue(const LinkedObjectFile& file);
 };
 
-
-#endif //NEXT_FUNCTION_H
+#endif  // NEXT_FUNCTION_H

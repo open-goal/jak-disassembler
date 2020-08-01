@@ -72,9 +72,14 @@ class ObjectFileDB {
   template <typename Func>
   void for_each_function(Func f) {
     for_each_obj([&](ObjectFileData& data) {
+//      printf("IN %s\n", data.record.to_unique_name().c_str());
       for (int i = 0; i < int(data.linked_data.segments); i++) {
+//        printf("seg %d\n", i);
+        int fn = 0;
         for (auto& goal_func : data.linked_data.functions_by_seg.at(i)) {
+//          printf("fn %d\n", fn);
           f(goal_func, i, data);
+          fn++;
         }
       }
     });
