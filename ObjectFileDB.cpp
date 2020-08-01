@@ -9,8 +9,8 @@
 #include <algorithm>
 #include <cstring>
 #include "LinkedObjectFileCreation.h"
-#include "game_version.h"
-#include "minilzo/minilzo.h"
+#include "config.h"
+#include "third-party/minilzo/minilzo.h"
 #include "util/BinaryReader.h"
 #include "util/FileIO.h"
 #include "util/Timer.h"
@@ -29,10 +29,9 @@ ObjectFileDB::ObjectFileDB(const std::vector<std::string>& _dgos) {
   Timer timer;
 
   printf("- Initializing ObjectFileDB...\n");
-  for(auto& dgo : _dgos) {
+  for (auto& dgo : _dgos) {
     get_objs_from_dgo(dgo);
   }
-
 
   printf("ObjectFileDB Initialized:\n");
   printf(" total dgos: %ld\n", _dgos.size());
@@ -40,8 +39,8 @@ ObjectFileDB::ObjectFileDB(const std::vector<std::string>& _dgos) {
   printf(" total objs: %d\n", stats.total_obj_files);
   printf(" unique objs: %d\n", stats.unique_obj_files);
   printf(" unique data: %d bytes\n", stats.unique_obj_bytes);
-  printf(" total %.1f ms (%.3f MB/sec, %.3f obj/sec)\n",
-         timer.getMs(), stats.total_dgo_bytes / ((1u << 20u) * timer.getSeconds()),
+  printf(" total %.1f ms (%.3f MB/sec, %.3f obj/sec)\n", timer.getMs(),
+         stats.total_dgo_bytes / ((1u << 20u) * timer.getSeconds()),
          stats.total_obj_files / timer.getSeconds());
   printf("\n");
 }
@@ -58,8 +57,9 @@ struct DgoHeader {
  */
 static void assert_string_empty_after(const char* str, int size) {
   auto ptr = str;
-  while(*ptr) ptr++;
-  while(ptr - str < size) {
+  while (*ptr)
+    ptr++;
+  while (ptr - str < size) {
     assert(!*ptr);
     ptr++;
   }
@@ -75,14 +75,14 @@ void ObjectFileDB::get_objs_from_dgo(const std::string& filename) {
 
   const char jak2_header[] = "oZlB";
   bool is_jak2 = true;
-  for(int i = 0; i < 4; i++) {
-    if(jak2_header[i] != dgo_data[i]) {
+  for (int i = 0; i < 4; i++) {
+    if (jak2_header[i] != dgo_data[i]) {
       is_jak2 = false;
     }
   }
 
-  if(is_jak2) {
-    if(lzo_init() != LZO_E_OK) {
+  if (is_jak2) {
+    if (lzo_init() != LZO_E_OK) {
       assert(false);
     }
     BinaryReader compressed_reader(dgo_data);
@@ -92,29 +92,32 @@ void ObjectFileDB::get_objs_from_dgo(const std::string& filename) {
     std::vector<uint8_t> decompressed_data;
     decompressed_data.resize(decompressed_size);
     size_t output_offset = 0;
-    while(true) {
+    while (true) {
       // seek past alignment bytes and read the next chunk size
       uint32_t chunk_size = 0;
-      while(!chunk_size) {
+      while (!chunk_size) {
         chunk_size = compressed_reader.read<uint32_t>();
       }
 
-      if(chunk_size < MAX_CHUNK_SIZE) {
+      if (chunk_size < MAX_CHUNK_SIZE) {
         lzo_uint bytes_written;
-        auto lzo_rv = lzo1x_decompress(compressed_reader.here(), chunk_size, decompressed_data.data() + output_offset, &bytes_written, nullptr);
+        auto lzo_rv =
+            lzo1x_decompress(compressed_reader.here(), chunk_size,
+                             decompressed_data.data() + output_offset, &bytes_written, nullptr);
         assert(lzo_rv == LZO_E_OK);
         compressed_reader.ffwd(chunk_size);
         output_offset += bytes_written;
       } else {
         // nope - sometimes chunk_size is bigger than MAX, but we should still use max.
-//        assert(chunk_size == MAX_CHUNK_SIZE);
+        //        assert(chunk_size == MAX_CHUNK_SIZE);
         memcpy(decompressed_data.data() + output_offset, compressed_reader.here(), MAX_CHUNK_SIZE);
         compressed_reader.ffwd(MAX_CHUNK_SIZE);
         output_offset += MAX_CHUNK_SIZE;
       }
 
-      if(output_offset >= decompressed_size) break;
-      while(compressed_reader.get_seek() %4) {
+      if (output_offset >= decompressed_size)
+        break;
+      while (compressed_reader.get_seek() % 4) {
         compressed_reader.ffwd(1);
       }
     }
@@ -128,9 +131,8 @@ void ObjectFileDB::get_objs_from_dgo(const std::string& filename) {
   assert(header.name == dgo_base_name);
   assert_string_empty_after(header.name, 60);
 
-
   // get all obj files...
-  for(uint32_t i = 0; i < header.size; i++) {
+  for (uint32_t i = 0; i < header.size; i++) {
     auto obj_header = reader.read<DgoHeader>();
     assert(reader.bytes_left() >= obj_header.size);
     assert_string_empty_after(obj_header.name, 60);
@@ -139,7 +141,6 @@ void ObjectFileDB::get_objs_from_dgo(const std::string& filename) {
     reader.ffwd(obj_header.size);
   }
 
-
   // check we're at the end
   assert(0 == reader.bytes_left());
 }
@@ -147,15 +148,17 @@ void ObjectFileDB::get_objs_from_dgo(const std::string& filename) {
 /*!
  * Add an object file to the ObjectFileDB
  */
-void ObjectFileDB::add_obj_from_dgo(const std::string &obj_name, uint8_t *obj_data, uint32_t obj_size,
-                                    const std::string &dgo_name) {
+void ObjectFileDB::add_obj_from_dgo(const std::string& obj_name,
+                                    uint8_t* obj_data,
+                                    uint32_t obj_size,
+                                    const std::string& dgo_name) {
   stats.total_obj_files++;
 
   auto hash = crc32(obj_data, obj_size);
 
   // first, check to see if we already got it...
-  for(auto& e : obj_files_by_name[obj_name]) {
-    if(e.data.size() == obj_size && e.record.hash == hash) {
+  for (auto& e : obj_files_by_name[obj_name]) {
+    if (e.data.size() == obj_size && e.record.hash == hash) {
       // already got it!
       e.reference_count++;
       auto rec = e.record;
@@ -183,15 +186,15 @@ void ObjectFileDB::add_obj_from_dgo(const std::string &obj_name, uint8_t *obj_da
 std::string ObjectFileDB::generate_dgo_listing() {
   std::string result = ";; DGO File Listing\n\n";
   std::vector<std::string> dgo_names;
-  for(auto& kv : obj_files_by_dgo) {
+  for (auto& kv : obj_files_by_dgo) {
     dgo_names.push_back(kv.first);
   }
 
   std::sort(dgo_names.begin(), dgo_names.end());
 
-  for(const auto& name : dgo_names) {
+  for (const auto& name : dgo_names) {
     result += "(\"" + name + "\"\n";
-    for(auto& obj : obj_files_by_dgo[name]) {
+    for (auto& obj : obj_files_by_dgo[name]) {
       result += "  " + obj.name + " :version " + std::to_string(obj.version) + "\n";
     }
     result += "  )\n\n";
@@ -209,8 +212,8 @@ void ObjectFileDB::process_link_data() {
 
   LinkedObjectFile::Stats combined_stats;
 
-  for(auto& kv : obj_files_by_name) {
-    for(auto& obj : kv.second) {
+  for (auto& kv : obj_files_by_name) {
+    for (auto& obj : kv.second) {
       obj.linked_data = to_linked_object_file(obj.data, obj.record.name);
       combined_stats.add(obj.linked_data.stats);
     }
@@ -246,8 +249,8 @@ void ObjectFileDB::process_labels() {
   printf("- Processing Labels...\n");
   Timer process_label_timer;
   uint32_t total = 0;
-  for(auto& kv : obj_files_by_name) {
-    for(auto& obj : kv.second) {
+  for (auto& kv : obj_files_by_name) {
+    for (auto& obj : kv.second) {
       total += obj.linked_data.set_ordered_label_names();
     }
   }
@@ -261,8 +264,8 @@ void ObjectFileDB::process_labels() {
 /*!
  * Dump object files and their linking data to text files for debugging
  */
-void ObjectFileDB::write_object_file_words(const std::string &output_dir, bool dump_v3_only) {
-  if(dump_v3_only) {
+void ObjectFileDB::write_object_file_words(const std::string& output_dir, bool dump_v3_only) {
+  if (dump_v3_only) {
     printf("- Writing object file dumps (v3 only)...\n");
   } else {
     printf("- Writing object file dumps (all)...\n");
@@ -271,9 +274,9 @@ void ObjectFileDB::write_object_file_words(const std::string &output_dir, bool d
   Timer timer;
   uint32_t total_bytes = 0, total_files = 0;
 
-  for(auto& kv : obj_files_by_name) {
-    for(auto& obj : kv.second) {
-      if(obj.linked_data.segments == 3 || !dump_v3_only) {
+  for (auto& kv : obj_files_by_name) {
+    for (auto& obj : kv.second) {
+      if (obj.linked_data.segments == 3 || !dump_v3_only) {
         auto file_text = obj.linked_data.print_words();
         auto file_name = combine_path(output_dir, obj.record.to_unique_name() + ".txt");
         total_bytes += file_text.size();
@@ -285,36 +288,38 @@ void ObjectFileDB::write_object_file_words(const std::string &output_dir, bool d
 
   printf("Wrote object file dumps:\n");
   printf(" total %d files\n", total_files);
-  printf(" total %.3f MB\n", total_bytes / ((float) (1u << 20u)));
-  printf(" total %.3f ms (%.3f MB/sec)\n", timer.getMs(), total_bytes / ((1u << 20u) * timer.getSeconds()));
+  printf(" total %.3f MB\n", total_bytes / ((float)(1u << 20u)));
+  printf(" total %.3f ms (%.3f MB/sec)\n", timer.getMs(),
+         total_bytes / ((1u << 20u) * timer.getSeconds()));
   printf("\n");
 }
 
 /*!
  * Dump disassembly for object files containing code.  Data zones will also be dumped.
  */
-void ObjectFileDB::write_disassembly(const std::string &output_dir) {
+void ObjectFileDB::write_disassembly(const std::string& output_dir,
+                                     bool disassemble_objects_without_functions) {
   printf("- Writing functions...\n");
   Timer timer;
   uint32_t total_bytes = 0, total_files = 0;
 
-  for(auto& kv : obj_files_by_name) {
-    for(auto& obj : kv.second) {
-      // for now, also dump objects without functions.
-//      if(!obj.linked_data.has_any_functions()) continue;
-      auto file_text = obj.linked_data.print_disassembly();
-
-      auto file_name = combine_path(output_dir, obj.record.to_unique_name() + ".func");
-      total_bytes += file_text.size();
-      write_text_file(file_name, file_text);
-      total_files++;
+  for (auto& kv : obj_files_by_name) {
+    for (auto& obj : kv.second) {
+      if (obj.linked_data.has_any_functions() || disassemble_objects_without_functions) {
+        auto file_text = obj.linked_data.print_disassembly();
+        auto file_name = combine_path(output_dir, obj.record.to_unique_name() + ".func");
+        total_bytes += file_text.size();
+        write_text_file(file_name, file_text);
+        total_files++;
+      }
     }
   }
 
   printf("Wrote functions dumps:\n");
   printf(" total %d files\n", total_files);
-  printf(" total %.3f MB\n", total_bytes / ((float) (1u << 20u)));
-  printf(" total %.3f ms (%.3f MB/sec)\n", timer.getMs(), total_bytes / ((1u << 20u) * timer.getSeconds()));
+  printf(" total %.3f MB\n", total_bytes / ((float)(1u << 20u)));
+  printf(" total %.3f ms (%.3f MB/sec)\n", timer.getMs(),
+         total_bytes / ((1u << 20u) * timer.getSeconds()));
   printf("\n");
 }
 
@@ -326,23 +331,23 @@ void ObjectFileDB::find_code() {
   LinkedObjectFile::Stats combined_stats;
   Timer timer;
 
-  for(auto& kv : obj_files_by_name) {
-    for(auto& obj : kv.second) {
-//      printf("fc %s\n", obj.record.to_unique_name().c_str());
+  for (auto& kv : obj_files_by_name) {
+    for (auto& obj : kv.second) {
+      //      printf("fc %s\n", obj.record.to_unique_name().c_str());
       obj.linked_data.find_code();
       obj.linked_data.find_functions();
       obj.linked_data.disassemble_functions();
 
-      if(gGameVersion != JAK2 || obj.record.to_unique_name() != "effect-control-v0") {
+      if (get_config().game_version == 1 || obj.record.to_unique_name() != "effect-control-v0") {
         obj.linked_data.process_fp_relative_links();
       } else {
         printf("skipping process_fp_relative_links in %s\n", obj.record.to_unique_name().c_str());
       }
 
-
       auto& obj_stats = obj.linked_data.stats;
-      if(obj_stats.code_bytes / 4 > obj_stats.decoded_ops) {
-        printf("Failed to decode all in %s (%d / %d)\n", obj.record.to_unique_name().c_str(), obj_stats.decoded_ops, obj_stats.code_bytes / 4);
+      if (obj_stats.code_bytes / 4 > obj_stats.decoded_ops) {
+        printf("Failed to decode all in %s (%d / %d)\n", obj.record.to_unique_name().c_str(),
+               obj_stats.decoded_ops, obj_stats.code_bytes / 4);
       }
       combined_stats.add(obj.linked_data.stats);
     }
@@ -352,22 +357,29 @@ void ObjectFileDB::find_code() {
   printf(" code %.3f MB\n", combined_stats.code_bytes / (float)(1 << 20));
   printf(" data %.3f MB\n", combined_stats.data_bytes / (float)(1 << 20));
   printf(" functions: %d\n", combined_stats.function_count);
-  printf(" fp uses resolved: %d / %d (%.3f %%)\n", combined_stats.n_fp_reg_use_resolved, combined_stats.n_fp_reg_use,
+  printf(" fp uses resolved: %d / %d (%.3f %%)\n", combined_stats.n_fp_reg_use_resolved,
+         combined_stats.n_fp_reg_use,
          100.f * (float)combined_stats.n_fp_reg_use_resolved / combined_stats.n_fp_reg_use);
   auto total_ops = combined_stats.code_bytes / 4;
-  printf(" decoded %d / %d (%.3f %%)\n", combined_stats.decoded_ops, total_ops, 100.f * (float)combined_stats.decoded_ops / total_ops);
+  printf(" decoded %d / %d (%.3f %%)\n", combined_stats.decoded_ops, total_ops,
+         100.f * (float)combined_stats.decoded_ops / total_ops);
   printf(" total %.3f ms\n", timer.getMs());
   printf("\n");
 }
 
-void ObjectFileDB::find_scripts(const std::string &output_dir) {
+/*!
+ * Finds and writes all scripts into a file named all_scripts.lisp.
+ * Doesn't change any state in ObjectFileDB.
+ */
+void ObjectFileDB::find_and_write_scripts(const std::string& output_dir) {
   printf("- Finding scripts in object files...\n");
   Timer timer;
+  std::string all_scripts;
 
-  for(auto& kv : obj_files_by_name) {
+  for (auto& kv : obj_files_by_name) {
     for (auto& obj : kv.second) {
       auto scripts = obj.linked_data.print_scripts();
-      if(!scripts.empty()) {
+      if (!scripts.empty()) {
         all_scripts += ";--------------------------------------\n";
         all_scripts += "; " + obj.record.to_unique_name() + "\n";
         all_scripts += ";---------------------------------------\n";

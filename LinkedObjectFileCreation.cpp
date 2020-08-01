@@ -7,7 +7,7 @@
 #include "LinkedObjectFileCreation.h"
 #include <cassert>
 #include <cstring>
-#include "game_version.h"
+#include "config.h"
 
 // There are three link versions:
 // V2 - not really in use anymore, but V4 will resue logic from it (and the game didn't rename the
@@ -632,11 +632,11 @@ static void link_v3(LinkedObjectFile& f,
     // HACK!
     // why is this a thing?
     // HACK!
-    if (gGameVersion == JAK1 && name == "level-h" && seg_id == 0) {
+    if (get_config().game_version == 1 && name == "level-h" && seg_id == 0) {
       segment_size++;
     }
 
-    if (gGameVersion == JAK2) {
+    if (get_config().game_version == 2) {
       bool adjusted = false;
       while (segment_size % 4) {
         segment_size++;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
-project(jak2_disassembler)
+project(jak_disassembler)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -24,8 +24,9 @@ if(CMAKE_COMPILER_IS_GNUCXX)
         -Wsign-promo")
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-add_executable(jak2_disassembler
-    util/LispPrint.cpp main.cpp
+add_executable(jak_disassembler
+    util/LispPrint.cpp
+    main.cpp
     ObjectFileDB.cpp
     Disasm/Instruction.cpp
     Disasm/InstructionDecode.cpp
@@ -35,10 +36,8 @@ add_executable(jak2_disassembler
     LinkedObjectFile.cpp
     Function/Function.cpp
     util/FileIO.cpp
-    minilzo/minilzo.c
-    game_version.cpp
-    game_version.h
+    third-party/minilzo/minilzo.c
+    config.cpp
     util/LispPrint.cpp
-    util/LispPrint.h
     util/Timer.cpp)
-target_include_directories(jak2_disassembler PRIVATE .)
+target_include_directories(jak_disassembler PRIVATE .)
