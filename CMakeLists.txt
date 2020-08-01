@@ -32,8 +32,6 @@ set(wxUSE_OPENGL ON CACHE BOOL "wxUSE_OPENGL" FORCE)
 set(wxUSE_WINRT	OFF CACHE BOOL "wxUSE_WINRT" FORCE)
 set(wxUSE_EXCEPTIONS OFF CACHE BOOL "wxUSE_EXCEPTIONS" FORCE)
 
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/wxWidgets" EXCLUDE_FROM_ALL)
-
 set(commonSources
 	util/LispPrint.cpp
 	ObjectFileDB.cpp
@@ -51,10 +49,9 @@ set(commonSources
     Disasm/InstructionMatching.cpp
     TypeSystem/GoalType.cpp
     TypeSystem/GoalFunction.cpp
-    TypeSystem.GoalSymbol.cpp
+    TypeSystem/GoalSymbol.cpp
     TypeSystem/TypeInfo.cpp
     TypeSystem/TypeSpec.cpp
-    game_version.cpp
     util/LispPrint.cpp
     util/LispPrint.h
     util/Timer.cpp
@@ -64,7 +61,6 @@ set(commonHeaders
 	LinkedObjectFile.h
 	Disasm/Instruction.h
 	util/Log.h
-	game_version.h
 	Api.h)
 
 add_executable(
@@ -73,6 +69,8 @@ add_executable(
 	${commonHeaders}
 	main.cpp)
 target_include_directories(jak2_disassembler PRIVATE .)
+
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/third-party/wxWidgets-3.1.4" EXCLUDE_FROM_ALL)
 
 add_executable(jak_disasm_gui WIN32
 	${commonSources}
@@ -85,6 +83,6 @@ add_executable(jak_disasm_gui WIN32
 # getting per-monitor DPI scaling to work properly was not easy
 # Windows seems to be the only platform that wants these manifest files
 # so maybe just some CMake flags to compile on each platform? (this manifest is for 64 bit as well)
-target_sources(jak_disasm_gui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/wxWidgets/include/wx/msw/amd64_dpi_aware.manifest")
+target_sources(jak_disasm_gui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third-party/wxWidgets-3.1.4/include/wx/msw/amd64_dpi_aware.manifest")
 target_link_libraries(jak_disasm_gui PRIVATE wxgl wxcore wxbase)
 target_include_directories(jak_disasm_gui PRIVATE .)

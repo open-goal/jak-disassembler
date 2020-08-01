@@ -55,7 +55,7 @@ MainFrame::MainFrame(wxWindow* parent,
   std::vector<std::string> ye;
   ye.push_back("C:\\Users\\xtvas\\Repositories\\jak2-disassembler\\test\\COMMON.CGO");
 
-  Api::disassemble("C:\\Users\\xtvas\\Repositories\\jak2-disassembler\\test\\out", ye);
+  //Api::disassemble("C:\\Users\\xtvas\\Repositories\\jak2-disassembler\\test\\out", ye);
 }
 
 void MainFrame::setProperties() {

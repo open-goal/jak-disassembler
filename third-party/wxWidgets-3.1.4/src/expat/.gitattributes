@@ -1,0 +1,5 @@
+# Don't include anything not needed to build and use the library.
+.git*                           export-ignore
+.travis*                        export-ignore
+appveyor.yml                    export-ignore
+testdata                        export-ignore

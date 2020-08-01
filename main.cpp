@@ -58,5 +58,5 @@ int main(int argc, char** argv) {
   //    printf("  %s\n", dgo.c_str());
   //  }
 
-  return Api::disassemble(output_path, dgos);
+  //return Api::disassemble(output_path, dgos);
 }

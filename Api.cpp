@@ -15,10 +15,10 @@ int Api::disassemble(std::string outputPath, std::vector<std::string> inputPaths
   db.process_link_data();
   db.find_code();
   db.process_labels();
-  db.find_scripts(outputPath);
+  // db.find_scripts(outputPath);
 
   //  db.write_object_file_words(output_path, false);
-  db.write_disassembly(outputPath);
+  // db.write_disassembly(outputPath);
 
   return 0;
 }

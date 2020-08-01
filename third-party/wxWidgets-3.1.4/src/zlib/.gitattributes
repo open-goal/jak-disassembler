@@ -1,0 +1,13 @@
+# Don't include anything not needed to build and use the library.
+.git*           export-ignore
+amiga/          export-ignore
+contrib/        export-ignore
+doc/            export-ignore
+examples/       export-ignore
+msdos/          export-ignore
+nintendods/     export-ignore
+old/            export-ignore
+os400/          export-ignore
+qnx/            export-ignore
+test/           export-ignore
+watcom/         export-ignore
