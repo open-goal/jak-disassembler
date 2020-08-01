@@ -204,13 +204,10 @@ static uint32_t align64(uint32_t in) {
   return (in + 63) & (~63);
 }
 
-// static uint32_t align32(uint32_t in) {
-//  return (in + 31) & (~31);
-//}
-
 static uint32_t align16(uint32_t in) {
   return (in + 15) & (~15);
 }
+
 
 /*!
  * Process link data for a "V4" object file.

@@ -79,12 +79,39 @@ Like `write_object_file_words`, but code is replaced with disassembly.  There's 
 ## Basic Block Finding 
 Look at branch intstructions and their destinations to find all basic blocks.  Implemented in `find_blocks_in_function` as part of `analyze_functions`.  This works for Jak 1, 2 and 3.
 
+## Analyze Functions Prologues and Epilogues
+This will help us find stack variables and make sure that the prologue/epilogue are ignored by the statement generation.
+
+A "full" prologue looks like this:
+```
+    daddiu sp, sp, -208
+    sd ra, 0(sp)       
+    sd fp, 8(sp)       
+    or fp, t9, r0        ;; set fp to the address of this function
+    sq s3, 128(sp)     
+    sq s4, 144(sp)     
+    sq s5, 160(sp)     
+    sq gp, 176(sp)     
+    swc1 f26, 192(sp)  
+    swc1 f28, 196(sp)  
+    swc1 f30, 200(sp)  
+```
+GOAL will leave out instructions that aren't needed.  This prologue is "decoded" into:
+
+```
+Total stack usage: 0xd0 bytes
+$fp set? : yes
+$ra set? : yes
+Stack variables : yes, 112 bytes at sp + 16
+Saved gprs: gp s5 s4 s3
+Saved fprs: f30 f28 f26
+```
+
+The prologue is removed from the first basic block.
 
 # Documentation of Planned Steps that are not implemented
 Currently the focus is to get these working for Jak 1. But it shouldn't be much extra work to support Jak 2/3.
 
-## Analyze Functions Prologues and Epilogues
-This will help us find stack variables and make sure that the prologue/epilogue are ignored by the statement generation.
 
 ## Guess Function Names (to be implemented)
 

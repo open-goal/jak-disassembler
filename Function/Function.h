@@ -10,29 +10,54 @@ class Function {
 public:
   Function(int _start_word, int _end_word);
 
+  void analyze_prologue(const LinkedObjectFile& file);
+
   int segment = -1;
   int start_word = -1;
   int end_word = -1; // not inclusive, but does include padding.
 
   std::string guessed_name;
 
+  bool suspected_asm = false;
+
   std::vector<Instruction> instructions;
   std::vector<BasicBlock> basic_blocks;
 
+  int prologue_start = -1;
+  int prologue_end = -1;
+
+  std::string warnings;
+
   struct Prologue {
-    bool decoded = false;
-    bool strange = false;
-    int length = -1;
-    int total_stack_size = -1;
-    bool ra_backup = false;
-    bool fp_backup = false;
+    bool decoded = false; // have we removed the prologue from basic blocks?
+    int total_stack_usage = -1;
 
-    // gpr backup
-    // fpr backup
+    // ra/fp are treated differently from other register backups
+    bool ra_backed_up = false;
+    int ra_backup_offset = -1;
 
-  };
+    bool fp_backed_up = false;
+    int fp_backup_offset = -1;
+
+    bool fp_set = false;
+
+    int n_gpr_backup = 0;
+    int gpr_backup_offset = -1;
+
+    int n_fpr_backup = 0;
+    int fpr_backup_offset = -1;
+
+    int n_stack_var_bytes = 0;
+    int stack_var_offset = -1;
+
+    std::string to_string(int indent = 0);
+
+  } prologue;
 
   bool uses_fp_register = false;
+
+ private:
+  void check_epilogue();
 };
 
 

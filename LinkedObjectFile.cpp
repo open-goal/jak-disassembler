@@ -488,6 +488,7 @@ std::string LinkedObjectFile::print_disassembly() {
     for (auto& func : functions_by_seg.at(seg)) {
       result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
       result += "; .function " + func.guessed_name + "\n";
+      result += func.prologue.to_string(2) + "\n";
 
       // print each instruction in the function.
       bool in_delay_slot = false;

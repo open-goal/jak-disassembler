@@ -40,5 +40,6 @@ add_executable(jak_disassembler
     config.cpp
     util/LispPrint.cpp
     util/Timer.cpp
-    Function/BasicBlocks.cpp)
+    Function/BasicBlocks.cpp
+    Disasm/InstructionMatching.cpp)
 target_include_directories(jak_disassembler PRIVATE .)

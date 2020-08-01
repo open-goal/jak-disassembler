@@ -29,7 +29,7 @@ std::vector<BasicBlock> find_blocks_in_function(const LinkedObjectFile& file,
       auto label_id = instr.get_label_target();
       assert(label_id != -1);
       const auto& label = file.labels.at(label_id);
-      // should only jump to within our own segment
+      // should only jump to within our own function
       assert(label.target_segment == seg);
       assert(label.offset / 4 > func.start_word);
       assert(label.offset / 4 < func.end_word - 1);

@@ -40,6 +40,8 @@ struct InstructionAtom {
 
   std::string to_string(const LinkedObjectFile& file) const;
 
+  bool is_link_or_label() const;
+
  private:
   int32_t imm;
   int label_id;
@@ -62,6 +64,8 @@ class Instruction {
 
   InstructionAtom& get_src(size_t idx);
   InstructionAtom& get_dst(size_t idx);
+  const InstructionAtom& get_src(size_t idx) const;
+  const InstructionAtom& get_dst(size_t idx) const;
 
   // source and destination atoms
   uint8_t n_src = 0, n_dst = 0;
@@ -69,6 +73,7 @@ class Instruction {
   InstructionAtom dst[MAX_INTRUCTION_DEST];
 
   InstructionAtom& get_imm_src();
+  int32_t get_imm_src_int();
 
   const OpcodeInfo& get_info() const;
 

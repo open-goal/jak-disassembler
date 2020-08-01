@@ -92,6 +92,13 @@ int InstructionAtom::get_label() const {
 }
 
 /*!
+ * True if this atom is some sort of constant that doesn't involve linking.
+ */
+bool InstructionAtom::is_link_or_label() const {
+  return kind == IMM_SYM || kind == LABEL;
+}
+
+/*!
  * Convert entire instruction to a string.
  */
 std::string Instruction::to_string(const LinkedObjectFile& file) const {
@@ -218,12 +225,26 @@ InstructionAtom& Instruction::get_imm_src() {
   return src[0];
 }
 
+int32_t Instruction::get_imm_src_int() {
+  return get_imm_src().get_imm();
+}
+
 InstructionAtom& Instruction::get_dst(size_t idx) {
   assert(idx < n_dst);
   return dst[idx];
 }
 
 InstructionAtom& Instruction::get_src(size_t idx) {
+  assert(idx < n_src);
+  return src[idx];
+}
+
+const InstructionAtom& Instruction::get_dst(size_t idx) const {
+  assert(idx < n_dst);
+  return dst[idx];
+}
+
+const InstructionAtom& Instruction::get_src(size_t idx) const {
   assert(idx < n_src);
   return src[idx];
 }

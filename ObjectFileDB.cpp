@@ -402,15 +402,19 @@ void ObjectFileDB::analyze_functions() {
   Timer timer;
 
   if (get_config().find_basic_blocks) {
+    timer.start();
     int total_basic_blocks = 0;
     for_each_function([&](Function& func, int segment_id, ObjectFileData& data) {
       auto blocks = find_blocks_in_function(data.linked_data, segment_id, func);
       total_basic_blocks += blocks.size();
       func.basic_blocks = blocks;
+      func.analyze_prologue(data.linked_data);
     });
 
     printf("Found %d basic blocks in %.3f ms\n", total_basic_blocks, timer.getMs());
   }
 
-  timer.start();
+
+
+
 }
