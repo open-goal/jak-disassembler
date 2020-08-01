@@ -136,9 +136,12 @@ class Register {
   uint32_t get_pcr() const;
 
   bool operator==(const Register& other) const;
+  bool operator!=(const Register& other) const;
 
  private:
   uint16_t id = -1;
 };
+
+
 
 #endif  // NEXT_REGISTER_H

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <numeric>
 #include "Disasm/InstructionDecode.h"
+#include "config.h"
 
 /*!
  * Set the number of segments in this object file.
@@ -58,7 +59,7 @@ int LinkedObjectFile::get_label_id_for(int seg, int offset) {
  * Get the ID of the label which points to the given offset in the given segment.
  * Returns -1 if there is no label.
  */
-int LinkedObjectFile::get_label_at(int seg, int offset) {
+int LinkedObjectFile::get_label_at(int seg, int offset) const {
   auto kv = label_per_seg_by_offset.at(seg).find(offset);
   if (kv == label_per_seg_by_offset.at(seg).end()) {
     return -1;
@@ -67,7 +68,35 @@ int LinkedObjectFile::get_label_at(int seg, int offset) {
   return kv->second;
 }
 
-std::string LinkedObjectFile::get_label_name(int label_id) {
+/*!
+ * Does this label point to code? Can point to the middle of a function, or the start of a function.
+ */
+bool LinkedObjectFile::label_points_to_code(int label_id) const {
+  auto& label = labels.at(label_id);
+  auto data_start = int(offset_of_data_zone_by_seg.at(label.target_segment)) * 4;
+  return label.offset < data_start;
+}
+
+/*!
+ * Get the function starting at this label, or error if there is none.
+ */
+Function& LinkedObjectFile::get_function_at_label(int label_id) {
+  auto& label = labels.at(label_id);
+  for (auto& func : functions_by_seg.at(label.target_segment)) {
+    // + 4 to skip past type tag to the first word, which is were the label points.
+    if (func.start_word * 4 + 4 == label.offset) {
+      return func;
+    }
+  }
+
+  assert(false);
+  return functions_by_seg.front().front(); // to avoid error
+}
+
+/*!
+ * Get the name of the label.
+ */
+std::string LinkedObjectFile::get_label_name(int label_id) const {
   return labels.at(label_id).name;
 }
 
@@ -103,7 +132,10 @@ void LinkedObjectFile::symbol_link_word(int source_segment,
                                         LinkedWord::Kind kind) {
   assert((source_offset % 4) == 0);
   auto& word = words_by_seg.at(source_segment).at(source_offset / 4);
-  assert(word.kind == LinkedWord::PLAIN_DATA);
+  //  assert(word.kind == LinkedWord::PLAIN_DATA);
+  if (word.kind != LinkedWord::PLAIN_DATA) {
+    printf("bad symbol link word\n");
+  }
   word.kind = kind;
   word.symbol_name = name;
 }
@@ -209,7 +241,7 @@ std::string LinkedObjectFile::print_words() {
 /*!
  * Add a word's printed representation to the end of a string. Internal helper for print_words.
  */
-void LinkedObjectFile::append_word_to_string(std::string& dest, const LinkedWord& word) {
+void LinkedObjectFile::append_word_to_string(std::string& dest, const LinkedWord& word) const {
   char buff[128];
 
   switch (word.kind) {
@@ -323,7 +355,8 @@ void LinkedObjectFile::find_code() {
       stats.code_bytes += 4 * offset_of_data_zone_by_seg.at(i);
     }
   } else {
-    assert(false);
+    // for files which we couldn't extract link data yet, they will have 0 segments and its ok.
+    assert(segments == 0);
   }
 }
 
@@ -471,6 +504,7 @@ void LinkedObjectFile::process_fp_relative_links() {
  * Print disassembled functions and data segments.
  */
 std::string LinkedObjectFile::print_disassembly() {
+  bool write_hex = get_config().write_hex_near_instructions;
   std::string result;
 
   assert(segments <= 3);
@@ -478,12 +512,14 @@ std::string LinkedObjectFile::print_disassembly() {
     // segment header
     result += ";------------------------------------------\n;  ";
     result += segment_names[seg];
-    result += "\n;------------------------------------------\n";
+    result += "\n;------------------------------------------\n\n";
 
     // functions
     for (auto& func : functions_by_seg.at(seg)) {
-      result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
+      result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
       result += "; .function " + func.guessed_name + "\n";
+      result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
+      result += func.prologue.to_string(2) + "\n";
 
       // print each instruction in the function.
       bool in_delay_slot = false;
@@ -506,13 +542,17 @@ std::string LinkedObjectFile::print_disassembly() {
         auto& instr = func.instructions.at(i);
         std::string line = "    " + instr.to_string(*this);
 
-        if (line.length() < 60) {
-          line.append(60 - line.length(), ' ');
+        if (write_hex) {
+          if (line.length() < 60) {
+            line.append(60 - line.length(), ' ');
+          }
+          result += line;
+          result += " ;;";
+          auto& word = words_by_seg[seg].at(func.start_word + i);
+          append_word_to_string(result, word);
+        } else {
+          result += line + "\n";
         }
-        result += line;
-        result += " ;;";
-        auto& word = words_by_seg[seg].at(func.start_word + i);
-        append_word_to_string(result, word);
 
         if (in_delay_slot) {
           result += "\n";
@@ -523,6 +563,19 @@ std::string LinkedObjectFile::print_disassembly() {
           in_delay_slot = true;
         }
       }
+      result += "\n";
+      //
+      //      int bid = 0;
+      //      for(auto& bblock : func.basic_blocks) {
+      //        result += "BLOCK " + std::to_string(bid++)+ "\n";
+      //        for(int i = bblock.start_word; i < bblock.end_word; i++) {
+      //          if(i >= 0 && i < func.instructions.size()) {
+      //            result += func.instructions.at(i).to_string(*this) + "\n";
+      //          } else {
+      //            result += "BAD BBLOCK INSTR ID " + std::to_string(i);
+      //          }
+      //        }
+      //      }
     }
 
     // print data
@@ -690,16 +743,19 @@ std::shared_ptr<Form> LinkedObjectFile::to_form_script(int seg,
   return result;
 }
 
+/*!
+ * Is the thing pointed to a string?
+ */
 bool LinkedObjectFile::is_string(int seg, int byte_idx) {
-  if(byte_idx%4) {
-    return false; // must be aligned pointer.
+  if (byte_idx % 4) {
+    return false;  // must be aligned pointer.
   }
   int type_tag_ptr = byte_idx - 4;
   // must fit in segment
-  if(type_tag_ptr < 0 || size_t(type_tag_ptr) >= words_by_seg.at(seg).size() * 4) {
+  if (type_tag_ptr < 0 || size_t(type_tag_ptr) >= words_by_seg.at(seg).size() * 4) {
     return false;
   }
-  auto& type_word = words_by_seg.at(seg).at(type_tag_ptr/4);
+  auto& type_word = words_by_seg.at(seg).at(type_tag_ptr / 4);
   return type_word.kind == LinkedWord::TYPE_PTR && type_word.symbol_name == "string";
 }
 
@@ -728,8 +784,8 @@ std::shared_ptr<Form> LinkedObjectFile::to_form_script_object(int seg,
           // list!
           result = to_form_script(seg, offset / 4, seen);
         } else {
-          if(is_string(seg, offset)) {
-            result = toForm(get_goal_string(seg, offset/4 - 1));
+          if (is_string(seg, offset)) {
+            result = toForm(get_goal_string(seg, offset / 4 - 1));
           } else {
             // some random pointer, just print the label.
             result = toForm(labels.at(word.label_id).name);
@@ -745,7 +801,7 @@ std::shared_ptr<Form> LinkedObjectFile::to_form_script_object(int seg,
       }
     } break;
 
-    case 2: // bad, a pair snuck through.
+    case 2:  // bad, a pair snuck through.
     default:
       // pointers should be aligned!
       printf("align %d\n", byte_idx & 7);

@@ -209,3 +209,7 @@ uint32_t Register::get_pcr() const {
 bool Register::operator==(const Register& other) const {
   return id == other.id;
 }
+
+bool Register::operator!=(const Register& other) const {
+  return id != other.id;
+}
