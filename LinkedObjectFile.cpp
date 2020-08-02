@@ -576,6 +576,11 @@ std::string LinkedObjectFile::print_disassembly() {
       //          }
       //        }
       //      }
+
+      // hack
+      result += func.cfg->to_dot();
+
+      result += "\n\n\n";
     }
 
     // print data

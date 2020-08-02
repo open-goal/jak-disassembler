@@ -7,6 +7,7 @@ template <typename T>
 struct MatchParam {
   MatchParam() { is_wildcard = true; }
 
+  // intentionally not explicit so you don't have to put MatchParam<whatever>(blah) everywhere
   MatchParam(T x) {
     value = x;
     is_wildcard = false;
@@ -62,5 +63,8 @@ bool is_jr_ra(const Instruction& instr);
 
 Register make_gpr(Reg::Gpr gpr);
 Register make_fpr(int fpr);
+
+bool is_branch(const Instruction& instr, MatchParam<bool> likely);
+bool is_always_branch(const Instruction& instr);
 
 #endif  // JAK_DISASSEMBLER_INSTRUCTIONMATCHING_H

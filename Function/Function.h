@@ -5,6 +5,7 @@
 #include <vector>
 #include "Disasm/Instruction.h"
 #include "BasicBlocks.h"
+#include "CfgVtx.h"
 
 class Function {
  public:
@@ -22,6 +23,7 @@ class Function {
 
   std::vector<Instruction> instructions;
   std::vector<BasicBlock> basic_blocks;
+  std::shared_ptr<ControlFlowGraph> cfg;
 
   int prologue_start = -1;
   int prologue_end = -1;

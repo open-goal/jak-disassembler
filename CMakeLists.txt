@@ -46,6 +46,6 @@ add_executable(jak_disassembler
     TypeSystem/GoalFunction.cpp
     TypeSystem/GoalSymbol.cpp
     TypeSystem/TypeInfo.cpp
-    TypeSystem/TypeSpec.cpp)
+    TypeSystem/TypeSpec.cpp Function/CfgVtx.cpp Function/CfgVtx.h)
 
 target_include_directories(jak_disassembler PRIVATE .)

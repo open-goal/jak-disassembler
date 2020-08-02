@@ -401,6 +401,7 @@ void ObjectFileDB::analyze_functions() {
       total_basic_blocks += blocks.size();
       func.basic_blocks = blocks;
       func.analyze_prologue(data.linked_data);
+      func.cfg = build_cfg(data.linked_data, segment_id, func);
     });
 
     printf("Found %d basic blocks in %.3f ms\n", total_basic_blocks, timer.getMs());

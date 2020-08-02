@@ -2,6 +2,9 @@
 #define JAK_DISASSEMBLER_BASICBLOCKS_H
 
 #include <vector>
+#include <memory>
+
+#include "CfgVtx.h"
 
 class LinkedObjectFile;
 class Function;
@@ -16,4 +19,8 @@ struct BasicBlock {
 std::vector<BasicBlock> find_blocks_in_function(const LinkedObjectFile& file,
                                                 int seg,
                                                 const Function& func);
+
+std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file,
+                                            int seg,
+                                            const Function& func);
 #endif  // JAK_DISASSEMBLER_BASICBLOCKS_H

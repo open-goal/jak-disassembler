@@ -3,13 +3,15 @@
 {
     "game_version":1,
     // the order here matters. KERNEL and GAME should go first
-    "dgo_names":["KERNEL.CGO", "GAME.CGO", "ART.CGO", "BEA.DGO", "CIT.DGO", "COMMON.CGO", "DAR.DGO", "DEM.DGO",
+    "dgo_names":["KERNEL.CGO", "GAME.CGO"
+    ],
+
+ /*   , "ART.CGO", "BEA.DGO", "CIT.DGO", "COMMON.CGO", "DAR.DGO", "DEM.DGO",
                  "FIN.DGO", "INT.DGO", "JUB.DGO", "JUN.DGO", "JUNGLE.CGO", "L1.CGO", "ENGINE.CGO", "FIC.DGO",
                  "LAV.DGO", "MAI.DGO", "MAINCAVE.CGO", "MIS.DGO", "OGR.DGO", "RACERP.CGO", "ROB.DGO", "ROL.DGO",
                  "SNO.DGO", "SUB.DGO", "SUN.DGO", "SUNKEN.CGO", "SWA.DGO", "TIT.DGO", "TRA.DGO", "VI1.DGO",
-                 "VI2.DGO", "VI3.DGO", "VILLAGEP.CGO", "WATER-AN.CGO"],
+                 "VI2.DGO", "VI3.DGO", "VILLAGEP.CGO", "WATER-AN.CGO"],*/
 
-    // to write out disassembled functions in .func files
     "write_disassembly":true,
     "write_hex_near_instructions":false,
     // if false, skips disassembling object files without functions, as these are usually large and not interesting yet.

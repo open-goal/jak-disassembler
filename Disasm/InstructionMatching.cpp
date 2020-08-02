@@ -317,3 +317,32 @@ bool is_nop(const Instruction& instr) {
 bool is_jr_ra(const Instruction& instr) {
   return instr.kind == InstructionKind::JR && instr.get_src(0).get_reg() == make_gpr(Reg::RA);
 }
+
+bool is_branch(const Instruction& instr, MatchParam<bool> likely) {
+  const auto& info = instr.get_info();
+  if(likely.is_wildcard) {
+    return info.is_branch || info.is_branch_likely;
+  } else if (likely.value){
+    return info.is_branch_likely;
+  } else {
+    return info.is_branch && !info.is_branch_likely;
+  }
+}
+
+bool is_always_branch(const Instruction& instr) {
+  if(!is_branch(instr, {})) {
+    return false;
+  }
+
+  auto r0 = make_gpr(Reg::R0);
+  if(instr.kind == InstructionKind::BEQ && instr.get_src(0).get_reg() == r0 && instr.get_src(1).get_reg() == r0) {
+    return true;
+  }
+
+  if(instr.kind == InstructionKind::BEQL && instr.get_src(0).get_reg() == r0 && instr.get_src(1).get_reg() == r0) {
+    assert(false);
+    return true;
+  }
+
+  return false;
+}
