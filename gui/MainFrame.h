@@ -3,6 +3,10 @@
 #include "wx/gauge.h"
 #include "wx/notebook.h"
 #include "wx/panel.h"
+#include "wx/listctrl.h"
+#include "wx/treectrl.h"
+#include "wx/scrolwin.h"
+#include "Api.h"
 
 #ifndef MAINFRAME_H
 #define MAINFRAME_H
@@ -23,33 +27,43 @@ class MainFrame : public wxFrame {
   wxPanel* createCompressionTab();
   wxPanel* createAssemblyTab();
   wxPanel* createVerificationTab();
+  void updateDisassemblyListItem(int index, Api::DisassemblyInfo info);
+  void initDisassemblyListItems();
 
-  std::vector<wxString> inputPaths;
+  std::vector<std::string> inputPaths;
   wxString outputPath;
   int disassemblyTypeSelection = 0;
   // TODO - put the selection in an enum or something
   bool prettyPrint = false;
   bool goalTranspiling = false;
 
+  std::vector<wxListItem> dgoFiles;
+
  protected:
-  wxButton* compressButton;
+  wxRadioBox* disassemblyInputTypeSelect;
+  wxButton* disassemblyInputBrowse;
+  wxButton* disassemblyOutputBrowse;
+  wxCheckBox* prettyPrintCheckbox;
+  wxCheckBox* goalTranspileCheckbox;
+  wxButton* disassembleButton;
+  wxGauge* disassemblyProgressBar;
+  wxListCtrl* disassemblyOutputList;
+  wxScrolledWindow* disassemblyOutputScrollPanel;
+  wxPanel* tabDissassembly;
+  wxRadioBox* compressionInputTypeSelect;
   wxButton* compressionInputBrowse;
   wxButton* compressionOutputBrowse;
   wxButton* decompressButton;
-  wxButton* disassembleButton;
-  wxButton* disassemblyInputBrowse;
-  wxButton* disassemblyOutputBrowse;
-  wxCheckBox* goalTranspileCheckbox;
-  wxCheckBox* prettyPrintCheckbox;
+  wxButton* compressButton;
   wxGauge* compressionProgressBar;
-  wxGauge* disassemblyProgressBar;
-  wxNotebook* tabWindow;
-  wxPanel* tabAssembly;
+  wxTreeCtrl* compressionOutputTreeList;
+  wxScrolledWindow* compressionOutputScrollPanel;
   wxPanel* tabCompression;
-  wxPanel* tabDissassembly;
+  wxPanel* tabAssembly;
   wxPanel* tabVerification;
-  wxRadioBox* compressionInputTypeSelect;
-  wxRadioBox* disassemblyInputTypeSelect;
+  wxNotebook* tabWindow;
+
+  void Disassemble_Click(wxCommandEvent& evt);
 };
 
 #endif
