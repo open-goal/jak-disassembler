@@ -1,2 +1,2 @@
-third-party/* linguist-vendored
+third-party/**/* linguist-vendored
 *.wxg linguist-generated
