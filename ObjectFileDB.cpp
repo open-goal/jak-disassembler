@@ -15,6 +15,7 @@
 #include "util/FileIO.h"
 #include "util/Timer.h"
 #include "Function/BasicBlocks.h"
+#include "util/Log.h"
 
 /*!
  * Get a unique name for this object file.
@@ -29,21 +30,21 @@ std::string ObjectFileRecord::to_unique_name() const {
 ObjectFileDB::ObjectFileDB(const std::vector<std::string>& _dgos) {
   Timer timer;
 
-  printf("- Initializing ObjectFileDB...\n");
+  logger.writeln("- Initializing ObjectFileDB...");
   for (auto& dgo : _dgos) {
     get_objs_from_dgo(dgo);
   }
 
-  printf("ObjectFileDB Initialized:\n");
-  printf(" total dgos: %ld\n", _dgos.size());
-  printf(" total data: %d bytes\n", stats.total_dgo_bytes);
-  printf(" total objs: %d\n", stats.total_obj_files);
-  printf(" unique objs: %d\n", stats.unique_obj_files);
-  printf(" unique data: %d bytes\n", stats.unique_obj_bytes);
-  printf(" total %.1f ms (%.3f MB/sec, %.3f obj/sec)\n", timer.getMs(),
-         stats.total_dgo_bytes / ((1u << 20u) * timer.getSeconds()),
-         stats.total_obj_files / timer.getSeconds());
-  printf("\n");
+  logger.writeln("ObjectFileDB Initialized:");
+  logger.writeln(" total dgos: %ld", _dgos.size());
+  logger.writeln(" total data: %d bytes", stats.total_dgo_bytes);
+  logger.writeln(" total objs: %d", stats.total_obj_files);
+  logger.writeln(" unique objs: %d", stats.unique_obj_files);
+  logger.writeln(" unique data: %d bytes", stats.unique_obj_bytes);
+  logger.writeln(" total %.1f ms (%.3f MB/sec, %.3f obj/sec)", timer.getMs(),
+                 stats.total_dgo_bytes / ((1u << 20u) * timer.getSeconds()),
+                 stats.total_obj_files / timer.getSeconds());
+  logger.writeln("");
 }
 
 // Header for a DGO file
@@ -214,7 +215,7 @@ std::string ObjectFileDB::generate_dgo_listing() {
  * Process all of the linking data of all objects.
  */
 void ObjectFileDB::process_link_data() {
-  printf("- Processing Link Data...\n");
+  logger.writeln("- Processing Link Data...");
   Timer process_link_timer;
 
   LinkedObjectFile::Stats combined_stats;
@@ -224,42 +225,42 @@ void ObjectFileDB::process_link_data() {
     combined_stats.add(obj.linked_data.stats);
   });
 
-  printf("Processed Link Data:\n");
-  printf(" code %d bytes\n", combined_stats.total_code_bytes);
-  printf(" v2 code %d bytes\n", combined_stats.total_v2_code_bytes);
-  printf(" v2 link data %d bytes\n", combined_stats.total_v2_link_bytes);
-  printf(" v2 pointers %d\n", combined_stats.total_v2_pointers);
-  printf(" v2 pointer seeks %d\n", combined_stats.total_v2_pointer_seeks);
-  printf(" v2 symbols %d\n", combined_stats.total_v2_symbol_count);
-  printf(" v2 symbol links %d\n", combined_stats.total_v2_symbol_links);
+  logger.writeln("Processed Link Data:");
+  logger.writeln(" code %d bytes", combined_stats.total_code_bytes);
+  logger.writeln(" v2 code %d bytes", combined_stats.total_v2_code_bytes);
+  logger.writeln(" v2 link data %d bytes", combined_stats.total_v2_link_bytes);
+  logger.writeln(" v2 pointers %d", combined_stats.total_v2_pointers);
+  logger.writeln(" v2 pointer seeks %d", combined_stats.total_v2_pointer_seeks);
+  logger.writeln(" v2 symbols %d", combined_stats.total_v2_symbol_count);
+  logger.writeln(" v2 symbol links %d", combined_stats.total_v2_symbol_links);
 
-  printf(" v3 code %d bytes\n", combined_stats.v3_code_bytes);
-  printf(" v3 link data %d bytes\n", combined_stats.v3_link_bytes);
-  printf(" v3 pointers %d\n", combined_stats.v3_pointers);
-  printf("   split %d\n", combined_stats.v3_split_pointers);
-  printf("   word  %d\n", combined_stats.v3_word_pointers);
-  printf(" v3 pointer seeks %d\n", combined_stats.v3_pointer_seeks);
-  printf(" v3 symbols %d\n", combined_stats.v3_symbol_count);
-  printf(" v3 offset symbol links %d\n", combined_stats.v3_symbol_link_offset);
-  printf(" v3 word symbol links %d\n", combined_stats.v3_symbol_link_word);
+  logger.writeln(" v3 code %d bytes", combined_stats.v3_code_bytes);
+  logger.writeln(" v3 link data %d bytes", combined_stats.v3_link_bytes);
+  logger.writeln(" v3 pointers %d", combined_stats.v3_pointers);
+  logger.writeln("   split %d", combined_stats.v3_split_pointers);
+  logger.writeln("   word  %d", combined_stats.v3_word_pointers);
+  logger.writeln(" v3 pointer seeks %d", combined_stats.v3_pointer_seeks);
+  logger.writeln(" v3 symbols %d", combined_stats.v3_symbol_count);
+  logger.writeln(" v3 offset symbol links %d", combined_stats.v3_symbol_link_offset);
+  logger.writeln(" v3 word symbol links %d", combined_stats.v3_symbol_link_word);
 
-  printf(" total %.3f ms\n", process_link_timer.getMs());
-  printf("\n");
+  logger.writeln(" total %.3f ms", process_link_timer.getMs());
+  logger.writeln("");
 }
 
 /*!
  * Process all of the labels generated from linking and give them reasonable names.
  */
 void ObjectFileDB::process_labels() {
-  printf("- Processing Labels...\n");
+  logger.writeln("- Processing Labels...");
   Timer process_label_timer;
   uint32_t total = 0;
   for_each_obj([&](ObjectFileData& obj) { total += obj.linked_data.set_ordered_label_names(); });
 
-  printf("Processed Labels:\n");
-  printf(" total %d labels\n", total);
-  printf(" total %.3f ms\n", process_label_timer.getMs());
-  printf("\n");
+  logger.writeln("Processed Labels:");
+  logger.writeln(" total %d labels", total);
+  logger.writeln(" total %.3f ms", process_label_timer.getMs());
+  logger.writeln("");
 }
 
 /*!
@@ -267,9 +268,9 @@ void ObjectFileDB::process_labels() {
  */
 void ObjectFileDB::write_object_file_words(const std::string& output_dir, bool dump_v3_only) {
   if (dump_v3_only) {
-    printf("- Writing object file dumps (v3 only)...\n");
+    logger.writeln("- Writing object file dumps (v3 only)...");
   } else {
-    printf("- Writing object file dumps (all)...\n");
+    logger.writeln("- Writing object file dumps (all)...");
   }
 
   Timer timer;
@@ -285,12 +286,12 @@ void ObjectFileDB::write_object_file_words(const std::string& output_dir, bool d
     }
   });
 
-  printf("Wrote object file dumps:\n");
-  printf(" total %d files\n", total_files);
-  printf(" total %.3f MB\n", total_bytes / ((float)(1u << 20u)));
-  printf(" total %.3f ms (%.3f MB/sec)\n", timer.getMs(),
-         total_bytes / ((1u << 20u) * timer.getSeconds()));
-  printf("\n");
+  logger.writeln("Wrote object file dumps:");
+  logger.writeln(" total %d files", total_files);
+  logger.writeln(" total %.3f MB", total_bytes / ((float)(1u << 20u)));
+  logger.writeln(" total %.3f ms (%.3f MB/sec)", timer.getMs(),
+                 total_bytes / ((1u << 20u) * timer.getSeconds()));
+  logger.writeln("");
 }
 
 /*!
@@ -298,7 +299,7 @@ void ObjectFileDB::write_object_file_words(const std::string& output_dir, bool d
  */
 void ObjectFileDB::write_disassembly(const std::string& output_dir,
                                      bool disassemble_objects_without_functions) {
-  printf("- Writing functions...\n");
+  logger.writeln("- Writing functions...");
   Timer timer;
   uint32_t total_bytes = 0, total_files = 0;
 
@@ -312,19 +313,19 @@ void ObjectFileDB::write_disassembly(const std::string& output_dir,
     }
   });
 
-  printf("Wrote functions dumps:\n");
-  printf(" total %d files\n", total_files);
-  printf(" total %.3f MB\n", total_bytes / ((float)(1u << 20u)));
-  printf(" total %.3f ms (%.3f MB/sec)\n", timer.getMs(),
-         total_bytes / ((1u << 20u) * timer.getSeconds()));
-  printf("\n");
+  logger.writeln("Wrote functions dumps:");
+  logger.writeln(" total %d files", total_files);
+  logger.writeln(" total %.3f MB", total_bytes / ((float)(1u << 20u)));
+  logger.writeln(" total %.3f ms (%.3f MB/sec)", timer.getMs(),
+                 total_bytes / ((1u << 20u) * timer.getSeconds()));
+  logger.writeln("");
 }
 
 /*!
  * Find code/data zones, identify functions, and disassemble
  */
 void ObjectFileDB::find_code() {
-  printf("- Finding code in object files...\n");
+  logger.writeln("- Finding code in object files...");
   LinkedObjectFile::Stats combined_stats;
   Timer timer;
 
@@ -337,29 +338,30 @@ void ObjectFileDB::find_code() {
     if (get_config().game_version == 1 || obj.record.to_unique_name() != "effect-control-v0") {
       obj.linked_data.process_fp_relative_links();
     } else {
-      printf("skipping process_fp_relative_links in %s\n", obj.record.to_unique_name().c_str());
+      logger.writeln("skipping process_fp_relative_links in %s",
+                     obj.record.to_unique_name().c_str());
     }
 
     auto& obj_stats = obj.linked_data.stats;
     if (obj_stats.code_bytes / 4 > obj_stats.decoded_ops) {
-      printf("Failed to decode all in %s (%d / %d)\n", obj.record.to_unique_name().c_str(),
-             obj_stats.decoded_ops, obj_stats.code_bytes / 4);
+      logger.writeln("Failed to decode all in %s (%d / %d)", obj.record.to_unique_name().c_str(),
+                     obj_stats.decoded_ops, obj_stats.code_bytes / 4);
     }
     combined_stats.add(obj.linked_data.stats);
   });
 
-  printf("Found code:\n");
-  printf(" code %.3f MB\n", combined_stats.code_bytes / (float)(1 << 20));
-  printf(" data %.3f MB\n", combined_stats.data_bytes / (float)(1 << 20));
-  printf(" functions: %d\n", combined_stats.function_count);
-  printf(" fp uses resolved: %d / %d (%.3f %%)\n", combined_stats.n_fp_reg_use_resolved,
-         combined_stats.n_fp_reg_use,
-         100.f * (float)combined_stats.n_fp_reg_use_resolved / combined_stats.n_fp_reg_use);
+  logger.writeln("Found code:");
+  logger.writeln(" code %.3f MB", combined_stats.code_bytes / (float)(1 << 20));
+  logger.writeln(" data %.3f MB", combined_stats.data_bytes / (float)(1 << 20));
+  logger.writeln(" functions: %d", combined_stats.function_count);
+  logger.writeln(" fp uses resolved: %d / %d (%.3f %%)", combined_stats.n_fp_reg_use_resolved,
+                 combined_stats.n_fp_reg_use,
+                 100.f * (float)combined_stats.n_fp_reg_use_resolved / combined_stats.n_fp_reg_use);
   auto total_ops = combined_stats.code_bytes / 4;
-  printf(" decoded %d / %d (%.3f %%)\n", combined_stats.decoded_ops, total_ops,
-         100.f * (float)combined_stats.decoded_ops / total_ops);
-  printf(" total %.3f ms\n", timer.getMs());
-  printf("\n");
+  logger.writeln(" decoded %d / %d (%.3f %%)", combined_stats.decoded_ops, total_ops,
+                 100.f * (float)combined_stats.decoded_ops / total_ops);
+  logger.writeln(" total %.3f ms", timer.getMs());
+  logger.writeln("");
 }
 
 /*!
@@ -367,7 +369,7 @@ void ObjectFileDB::find_code() {
  * Doesn't change any state in ObjectFileDB.
  */
 void ObjectFileDB::find_and_write_scripts(const std::string& output_dir) {
-  printf("- Finding scripts in object files...\n");
+  logger.writeln("- Finding scripts in object files...");
   Timer timer;
   std::string all_scripts;
 
@@ -384,13 +386,13 @@ void ObjectFileDB::find_and_write_scripts(const std::string& output_dir) {
   auto file_name = combine_path(output_dir, "all_scripts.lisp");
   write_text_file(file_name, all_scripts);
 
-  printf("Found scripts:\n");
-  printf(" total %.3f ms\n", timer.getMs());
-  printf("\n");
+  logger.writeln("Found scripts:");
+  logger.writeln(" total %.3f ms", timer.getMs());
+  logger.writeln("");
 }
 
 void ObjectFileDB::analyze_functions() {
-  printf("- Analyzing Functions...\n");
+  logger.writeln("- Analyzing Functions...");
   Timer timer;
 
   if (get_config().find_basic_blocks) {
@@ -403,13 +405,13 @@ void ObjectFileDB::analyze_functions() {
       func.analyze_prologue(data.linked_data);
     });
 
-    printf("Found %d basic blocks in %.3f ms\n", total_basic_blocks, timer.getMs());
+    logger.writeln("Found %d basic blocks in %.3f ms", total_basic_blocks, timer.getMs());
   }
 
   {
     timer.start();
     for_each_obj([&](ObjectFileData& data) {
-      if(data.linked_data.segments == 3) {
+      if (data.linked_data.segments == 3) {
         // the top level segment should have a single function
         assert(data.linked_data.functions_by_seg.at(2).size() == 1);
 
