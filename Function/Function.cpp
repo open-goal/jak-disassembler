@@ -2,7 +2,7 @@
 #include <vector>
 #include "Function.h"
 #include "Disasm/InstructionMatching.h"
-#include "LinkedObjectFile.h"
+#include "ObjectFile/LinkedObjectFile.h"
 #include "TypeSystem/TypeInfo.h"
 
 namespace {

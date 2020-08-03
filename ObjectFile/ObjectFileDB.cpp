@@ -393,6 +393,9 @@ void ObjectFileDB::analyze_functions() {
   printf("- Analyzing Functions...\n");
   Timer timer;
 
+  int total_functions = 0;
+  int resolved_cfg_functions = 0;
+
   if (get_config().find_basic_blocks) {
     timer.start();
     int total_basic_blocks = 0;
@@ -402,15 +405,21 @@ void ObjectFileDB::analyze_functions() {
       func.basic_blocks = blocks;
       func.analyze_prologue(data.linked_data);
       func.cfg = build_cfg(data.linked_data, segment_id, func);
+      total_functions++;
+      if (func.cfg->is_fully_resolved()) {
+        resolved_cfg_functions++;
+      }
     });
 
     printf("Found %d basic blocks in %.3f ms\n", total_basic_blocks, timer.getMs());
+    printf(" %d/%d cfg's resolved (%.2f%%)\n", resolved_cfg_functions, total_functions,
+           100.f * float(resolved_cfg_functions) / float(total_functions));
   }
 
   {
     timer.start();
     for_each_obj([&](ObjectFileData& data) {
-      if(data.linked_data.segments == 3) {
+      if (data.linked_data.segments == 3) {
         // the top level segment should have a single function
         assert(data.linked_data.functions_by_seg.at(2).size() == 1);
 

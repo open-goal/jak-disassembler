@@ -5,7 +5,7 @@
  */
 
 #include "Instruction.h"
-#include "LinkedObjectFile.h"
+#include "ObjectFile/LinkedObjectFile.h"
 #include <cassert>
 
 /*!

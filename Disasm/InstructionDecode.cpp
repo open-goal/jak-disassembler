@@ -6,7 +6,7 @@
 
 #include "InstructionDecode.h"
 #include <cassert>
-#include "../LinkedObjectFile.h"
+#include "ObjectFile/LinkedObjectFile.h"
 
 // utility class to extract fields of an opcode.
 struct OpcodeFields {

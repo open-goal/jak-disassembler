@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
-#include "ObjectFileDB.h"
+#include "ObjectFile/ObjectFileDB.h"
 #include "config.h"
 #include "util/FileIO.h"
 #include "TypeSystem/TypeInfo.h"

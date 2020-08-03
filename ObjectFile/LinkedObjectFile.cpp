@@ -578,8 +578,11 @@ std::string LinkedObjectFile::print_disassembly() {
       //      }
 
       // hack
-      result += func.cfg->to_dot();
-
+      if(!func.cfg->is_fully_resolved()) {
+        result += func.cfg->to_dot();
+        result += "\n";
+      }
+      result += func.cfg->to_form_string();
       result += "\n\n\n";
     }
 

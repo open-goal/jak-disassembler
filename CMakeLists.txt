@@ -27,13 +27,13 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 add_executable(jak_disassembler
     util/LispPrint.cpp
     main.cpp
-    ObjectFileDB.cpp
+        ObjectFile/ObjectFileDB.cpp
     Disasm/Instruction.cpp
     Disasm/InstructionDecode.cpp
     Disasm/OpcodeInfo.cpp
     Disasm/Register.cpp
-    LinkedObjectFileCreation.cpp
-    LinkedObjectFile.cpp
+        ObjectFile/LinkedObjectFileCreation.cpp
+        ObjectFile/LinkedObjectFile.cpp
     Function/Function.cpp
     util/FileIO.cpp
     third-party/minilzo/minilzo.c

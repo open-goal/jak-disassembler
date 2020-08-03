@@ -3,7 +3,8 @@
 {
     "game_version":1,
     // the order here matters. KERNEL and GAME should go first
-    "dgo_names":["KERNEL.CGO", "GAME.CGO"
+    "dgo_names":["KERNEL.CGO"
+    , "GAME.CGO"
     ],
 
  /*   , "ART.CGO", "BEA.DGO", "CIT.DGO", "COMMON.CGO", "DAR.DGO", "DEM.DGO",
