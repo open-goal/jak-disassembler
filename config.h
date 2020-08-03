@@ -14,7 +14,6 @@ struct Config {
   bool disassemble_objects_without_functions = false;
   bool find_basic_blocks = false;
   bool write_hex_near_instructions = false;
-  // ...
 };
 
 Config& get_config();

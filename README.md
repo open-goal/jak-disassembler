@@ -1,7 +1,7 @@
 How to use
 -----------
 Compile (Linux):
-```
+```bash
 mkdir build
 cd build
 cmake ..
@@ -11,7 +11,7 @@ cd ..
 
 After compiling:
 First create a folder for the output and create a folder for the input.  Add all of the CGO/DGO files into the input folder.
-```
+```bash
 build/jak_disassembler config/jak1_ntsc_black_label.jsonc in_folder/ out_folder/
 ```
 
@@ -50,7 +50,7 @@ The last two are only found in very large object files, and GOALDIS doesn't hand
 
 The `fp` register is set with this sequence.  The function prologue only sets `fp` if it is needed in the function.
 
-```
+```asm
 ;; goal function call, t9 contains the function address
 jalr ra, t9
 sll v0, ra, 0 
@@ -83,7 +83,7 @@ Look at branch intstructions and their destinations to find all basic blocks.  I
 This will help us find stack variables and make sure that the prologue/epilogue are ignored by the statement generation.
 
 A "full" prologue looks like this:
-```
+```asm
     daddiu sp, sp, -208
     sd ra, 0(sp)       
     sd fp, 8(sp)       
@@ -98,7 +98,7 @@ A "full" prologue looks like this:
 ```
 GOAL will leave out instructions that aren't needed.  This prologue is "decoded" into:
 
-```
+```asm
 Total stack usage: 0xd0 bytes
 $fp set? : yes
 $ra set? : yes
@@ -118,7 +118,7 @@ Currently the focus is to get these working for Jak 1. But it shouldn't be much 
 
 When possible, we should guess function names. It's not always possible because GOAL supports anonymous lambda functions, like for example:
 
-```
+```lisp
 (lambda ((x int) (y int)) (+ x y))
 ```
 
@@ -156,26 +156,26 @@ Variables which are actually the same variable will be merged.  The point at whi
 ## Statement -> S-Expression map tree
 Due to the the simple single pass GOAL compiler design, we build a tree which represents how Statements can be combined to eliminate variables.  As an extremely simple example:
 
-```
+```lisp
 (set! r1 thing1)
 (set! r2 thing2)
 (add-int! r4 r2 r3)
 (mult-int! r1 r4)
 ```
  can be collapsed to
-```
+```lisp
 (* thing1 (+ thing2 r3))
 ```
 
 But 
-```
+```lisp
 (set! r2 thing2)
 (add-int! r4 r2 r3)
 (set! r1 thing1)
 (mult-int! r1 r4)
 ```
  can be collapsed to
-```
+```lisp
 (let ((temp0 (+ thing2 r3)))
   (+ thing1 temp0)
 )

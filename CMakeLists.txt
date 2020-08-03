@@ -54,6 +54,7 @@ set(commonSources
     util/LispPrint.cpp
     util/LispPrint.h
     util/Timer.cpp
+	util/Log.cpp
 	Api.cpp)
 
 set(commonHeaders
