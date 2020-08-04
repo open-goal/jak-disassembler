@@ -72,6 +72,13 @@ class CfgVtx {
   CfgVtx* prev = nullptr;         // previous code in memory
   std::vector<CfgVtx*> pred;      // all vertices which have us as succ_branch or succ_ft
 
+  struct {
+    bool has_branch = false;     // does the block end in a branch (any kind)?
+    bool branch_likely = false;  // does the block end in a likely branch?
+    bool branch_always = false;  // does the branch always get taken?
+  } end_branch;
+
+
   // each child class of CfgVtx will define its own children.
 
   /*!
@@ -108,6 +115,8 @@ class CfgVtx {
   void replace_pred_and_check(CfgVtx* old_pred, CfgVtx* new_pred);
   void replace_succ_and_check(CfgVtx* old_succ, CfgVtx* new_succ);
   void replace_preds_with_and_check(std::vector<CfgVtx*> old_preds, CfgVtx* new_pred);
+
+  std::string links_to_string();
 };
 
 /*!
@@ -138,9 +147,6 @@ class BlockVtx : public CfgVtx {
   std::string to_string() override;
   std::shared_ptr<Form> to_form() override;
   int block_id = -1;           // which block are we?
-  bool has_branch = false;     // does the block end in a branch (any kind)?
-  bool branch_likely = false;  // does the block end in a likely branch?
-  bool branch_always = false;  // does the branch always get taken?
 };
 
 /*!
@@ -187,6 +193,15 @@ class IfElseVtx : public CfgVtx {
   CfgVtx* false_case = nullptr;
 };
 
+class WhileLoop : public CfgVtx {
+ public:
+  std::string to_string() override;
+  std::shared_ptr<Form> to_form() override;
+
+  CfgVtx* condition = nullptr;
+  CfgVtx* body = nullptr;
+};
+
 /*!
  * The actual CFG class, which owns all the vertices.
  */
@@ -205,8 +220,9 @@ class ControlFlowGraph {
   const std::vector<BlockVtx*>& create_blocks(int count);
   void link_fall_through(BlockVtx* first, BlockVtx* second);
   void link_branch(BlockVtx* first, BlockVtx* second);
-  void find_if_else_top_level();
-  void find_seq_top_level();
+  bool find_if_else_top_level();
+  bool find_seq_top_level();
+  bool find_while_loop_top_level();
 
 
   /*!
@@ -240,6 +256,10 @@ class ControlFlowGraph {
  private:
   //  bool compact_one_in_top_level();
   bool is_if_else(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2, CfgVtx* b3);
+  bool is_sequence(CfgVtx* b0, CfgVtx* b1);
+  bool is_sequence_of_non_sequences(CfgVtx* b0, CfgVtx* b1);
+  bool is_sequence_of_non_sequence_and_sequence(CfgVtx* b0, CfgVtx* b1);
+  bool is_while_loop(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2);
   std::vector<BlockVtx*> m_blocks;   // all block nodes, in order.
   std::vector<CfgVtx*> m_node_pool;  // all nodes allocated
   EntryVtx* m_entry;                 // the entry vertex
