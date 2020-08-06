@@ -129,7 +129,11 @@ std::string CfgVtx::links_to_string() {
 /////////////////////////////////////////
 
 std::string BlockVtx::to_string() {
-  return "Block " + std::to_string(block_id);
+  if(is_early_exit_block) {
+    return "Block (EA) " + std::to_string(block_id);
+  } else {
+    return "Block " + std::to_string(block_id);
+  }
 }
 
 std::shared_ptr<Form> BlockVtx::to_form() {
@@ -287,8 +291,8 @@ std::shared_ptr<Form> ControlFlowGraph::to_form() {
  * ungrouped stuff into an "(ungrouped ...)" form and prints that.
  */
 std::string ControlFlowGraph::to_form_string() {
-  // todo - fix bug in pretty printing!
-  return to_form()->toStringSimple();
+  // todo - fix bug in pretty printing and reduce this to 80!
+  return to_form()->toStringPretty(0, 140);
 }
 
 // bool ControlFlowGraph::compact_top_level() {
@@ -401,14 +405,15 @@ bool ControlFlowGraph::is_sequence_of_non_sequences(CfgVtx *b0, CfgVtx *b1) {
   return is_sequence(b0, b1);
 }
 
-bool ControlFlowGraph::is_sequence_of_non_sequence_and_sequence(CfgVtx *b0, CfgVtx *b1) {
+bool ControlFlowGraph::is_sequence_of_sequence_and_non_sequence(CfgVtx *b0, CfgVtx *b1) {
   if(!b0 || !b1) return false;
-  if(dynamic_cast<SequenceVtx*>(b0)) return false;
-  if(!dynamic_cast<SequenceVtx*>(b1)) return false;
+  if(!dynamic_cast<SequenceVtx*>(b0)) return false;
+  if(dynamic_cast<SequenceVtx*>(b1)) return false;
   return is_sequence(b0, b1);
 }
 
 bool ControlFlowGraph::is_while_loop(CfgVtx *b0, CfgVtx *b1, CfgVtx *b2) {
+  // todo - check delay slots!
   if(!b0 || !b1 || !b2) return false;
 
   // check next and prev
@@ -458,6 +463,7 @@ bool ControlFlowGraph::is_while_loop(CfgVtx *b0, CfgVtx *b1, CfgVtx *b2) {
  * TODO - will we accidentally find some cond statements like this?
  */
 bool ControlFlowGraph::find_if_else_top_level() {
+  // todo check delay slots
   // Example:
   // B0:
   //  beq s7, v1, B2  ;; inverted branch condition (branch on condition not met)
@@ -620,13 +626,27 @@ bool ControlFlowGraph::find_seq_top_level() {
       return false;
     }
 
-//    if(is_sequence_of_non_sequence_and_sequence(b0, b1)) {
-//      replaced = true;
-//      auto* seq = dynamic_cast<SequenceVtx*>(b1);
-//      assert(seq);
-//
-//      return false;
-//    }
+    if(is_sequence_of_sequence_and_non_sequence(b0, b1)) {
+      replaced = true;
+      auto* seq = dynamic_cast<SequenceVtx*>(b0);
+      assert(seq);
+
+      seq->seq.push_back(b1);
+
+      for(auto* new_succ : b1->succs()) {
+        new_succ->replace_pred_and_check(b1, b0);
+      }
+      seq->succ_ft = b1->succ_ft;
+      seq->succ_branch = b1->succ_branch;
+      seq->next = b1->next;
+      if(seq->next) {
+        seq->next->prev = seq;
+      }
+
+      b1->parent_claim(seq);
+      seq->end_branch = b1->end_branch;
+      return false;
+    }
 
 
 
@@ -691,6 +711,16 @@ void ControlFlowGraph::link_branch(BlockVtx* first, BlockVtx* second) {
   if (!second->has_pred(first)) {
     // see comment in link_fall_through
     second->pred.push_back(first);
+  }
+}
+
+void ControlFlowGraph::flag_early_exit(const std::vector<BasicBlock>& blocks) {
+  auto* b = m_blocks.back();
+  const auto& block = blocks.at(b->block_id);
+
+  if(block.start_word == block.end_word) {
+    b->is_early_exit_block = true;
+    assert(!b->end_branch.has_branch);
   }
 }
 
@@ -776,6 +806,8 @@ std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file,
       }
     }
   }
+
+  cfg->flag_early_exit(func.basic_blocks);
 
   bool changed = true;
   while(changed) {

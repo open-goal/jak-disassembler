@@ -63,8 +63,6 @@ class CfgVtx {
   virtual std::shared_ptr<Form> to_form() = 0;  // recursive print as LISP form.
   virtual ~CfgVtx() = default;
 
-
-
   CfgVtx* parent = nullptr;       // parent structure, or nullptr if top level
   CfgVtx* succ_branch = nullptr;  // possible successor from branching, or NULL if no branch
   CfgVtx* succ_ft = nullptr;      // possible successor from falling through, or NULL if impossible
@@ -77,7 +75,6 @@ class CfgVtx {
     bool branch_likely = false;  // does the block end in a likely branch?
     bool branch_always = false;  // does the branch always get taken?
   } end_branch;
-
 
   // each child class of CfgVtx will define its own children.
 
@@ -146,7 +143,8 @@ class BlockVtx : public CfgVtx {
   explicit BlockVtx(int id) : block_id(id) {}
   std::string to_string() override;
   std::shared_ptr<Form> to_form() override;
-  int block_id = -1;           // which block are we?
+  int block_id = -1;                 // which block are we?
+  bool is_early_exit_block = false;  // are we an empty block at the end for early exits to jump to?
 };
 
 /*!
@@ -202,6 +200,8 @@ class WhileLoop : public CfgVtx {
   CfgVtx* body = nullptr;
 };
 
+struct BasicBlock;
+
 /*!
  * The actual CFG class, which owns all the vertices.
  */
@@ -217,13 +217,14 @@ class ControlFlowGraph {
   bool is_fully_resolved();
   CfgVtx* get_single_top_level();
 
+  void flag_early_exit(const std::vector<BasicBlock>& blocks);
+
   const std::vector<BlockVtx*>& create_blocks(int count);
   void link_fall_through(BlockVtx* first, BlockVtx* second);
   void link_branch(BlockVtx* first, BlockVtx* second);
   bool find_if_else_top_level();
   bool find_seq_top_level();
   bool find_while_loop_top_level();
-
 
   /*!
    * Apply a function f to each top-level vertex.
@@ -258,7 +259,7 @@ class ControlFlowGraph {
   bool is_if_else(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2, CfgVtx* b3);
   bool is_sequence(CfgVtx* b0, CfgVtx* b1);
   bool is_sequence_of_non_sequences(CfgVtx* b0, CfgVtx* b1);
-  bool is_sequence_of_non_sequence_and_sequence(CfgVtx* b0, CfgVtx* b1);
+  bool is_sequence_of_sequence_and_non_sequence(CfgVtx* b0, CfgVtx* b1);
   bool is_while_loop(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2);
   std::vector<BlockVtx*> m_blocks;   // all block nodes, in order.
   std::vector<CfgVtx*> m_node_pool;  // all nodes allocated

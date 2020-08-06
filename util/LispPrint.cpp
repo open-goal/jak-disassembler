@@ -365,6 +365,10 @@ static void insertBreaksAsNeeded(PrettyPrinterNode* head, int line_length) {
     assert(!candidate_line->prev || candidate_line->prev->is_line_separator);
     PrettyPrinterNode* form_to_start = getFirstListOnLine(candidate_line);
     for(;;) {
+      if(!form_to_start) {
+        printf("pretty printer has failed. Fix the bug or increase the the line length.\n");
+        assert(false);
+      }
       breakList(form_to_start);
       propagatePretty(head, line_length);
       if(getFirstBadLine(candidate_line, line_length) != candidate_line) {
