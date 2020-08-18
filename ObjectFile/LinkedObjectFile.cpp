@@ -517,9 +517,12 @@ std::string LinkedObjectFile::print_disassembly() {
     // functions
     for (auto& func : functions_by_seg.at(seg)) {
       result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
-      result += "; .function " + func.guessed_name + "\n";
+      result += "; .function " + func.guessed_name.to_string() + "\n";
       result += ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n";
       result += func.prologue.to_string(2) + "\n";
+      if(!func.warnings.empty()) {
+        result += "Warnings: " + func.warnings + "\n";
+      }
 
       // print each instruction in the function.
       bool in_delay_slot = false;
@@ -578,11 +581,14 @@ std::string LinkedObjectFile::print_disassembly() {
       //      }
 
       // hack
-      if(!func.cfg->is_fully_resolved()) {
+      if(func.cfg && !func.cfg->is_fully_resolved()) {
         result += func.cfg->to_dot();
         result += "\n";
       }
-      result += func.cfg->to_form_string();
+      if(func.cfg) {
+        result += func.cfg->to_form_string();
+      }
+
       result += "\n\n\n";
     }
 

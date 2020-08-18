@@ -23,4 +23,10 @@ void set_config(const std::string& path_to_config_file) {
       cfg.at("disassemble_objects_without_functions").get<bool>();
   gConfig.find_basic_blocks = cfg.at("find_basic_blocks").get<bool>();
   gConfig.write_hex_near_instructions = cfg.at("write_hex_near_instructions").get<bool>();
+
+  std::vector<std::string> asm_functions_by_name =
+      cfg.at("asm_functions_by_name").get<std::vector<std::string>>();
+  for (const auto& x : asm_functions_by_name) {
+    gConfig.asm_functions_by_name.insert(x);
+  }
 }

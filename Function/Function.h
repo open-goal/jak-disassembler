@@ -7,6 +7,51 @@
 #include "BasicBlocks.h"
 #include "CfgVtx.h"
 
+struct FunctionName {
+  enum class FunctionKind {
+    UNIDENTIFIED, // hasn't been identified yet.
+    GLOBAL, // global named function
+    METHOD,
+    TOP_LEVEL_INIT,
+  } kind = FunctionKind::UNIDENTIFIED;
+
+  std::string function_name; // only applicable for GLOBAL
+  std::string type_name;     // only applicable for METHOD
+  int method_id = -1;        // only applicable for METHOD
+
+  std::string to_string() const {
+    switch(kind) {
+      case FunctionKind::GLOBAL:
+        return function_name;
+      case FunctionKind::METHOD:
+        return "(method " + std::to_string(method_id) + " " + type_name + ")";
+      case FunctionKind::TOP_LEVEL_INIT:
+        return "(top-level-login)";
+      case FunctionKind::UNIDENTIFIED:
+        return "(?)";
+      default:
+        assert(false);
+    }
+  }
+
+  bool empty() const {
+    return kind == FunctionKind::UNIDENTIFIED;
+  }
+
+  void set_as_top_level() {
+    kind = FunctionKind::TOP_LEVEL_INIT;
+  }
+
+  void set_as_global(std::string name) {
+    kind = FunctionKind::GLOBAL;
+    function_name = std::move(name);
+  }
+
+  bool expected_unique() {
+    return kind == FunctionKind::GLOBAL || kind == FunctionKind::METHOD;
+  }
+};
+
 class Function {
  public:
   Function(int _start_word, int _end_word);
@@ -17,13 +62,13 @@ class Function {
   int start_word = -1;
   int end_word = -1;  // not inclusive, but does include padding.
 
-  std::string guessed_name;
+  FunctionName guessed_name;
 
   bool suspected_asm = false;
 
   std::vector<Instruction> instructions;
   std::vector<BasicBlock> basic_blocks;
-  std::shared_ptr<ControlFlowGraph> cfg;
+  std::shared_ptr<ControlFlowGraph> cfg = nullptr;
 
   int prologue_start = -1;
   int prologue_end = -1;

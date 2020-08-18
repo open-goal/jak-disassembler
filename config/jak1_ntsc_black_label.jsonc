@@ -4,14 +4,14 @@
     "game_version":1,
     // the order here matters. KERNEL and GAME should go first
     "dgo_names":["KERNEL.CGO"
-    , "GAME.CGO"
-    ],
+    , "GAME.CGO", "ENGINE.CGO"
+//     ],
 
- /*   , "ART.CGO", "BEA.DGO", "CIT.DGO", "COMMON.CGO", "DAR.DGO", "DEM.DGO",
+    , "ART.CGO", "BEA.DGO", "CIT.DGO", "COMMON.CGO", "DAR.DGO", "DEM.DGO",
                  "FIN.DGO", "INT.DGO", "JUB.DGO", "JUN.DGO", "JUNGLE.CGO", "L1.CGO", "ENGINE.CGO", "FIC.DGO",
                  "LAV.DGO", "MAI.DGO", "MAINCAVE.CGO", "MIS.DGO", "OGR.DGO", "RACERP.CGO", "ROB.DGO", "ROL.DGO",
                  "SNO.DGO", "SUB.DGO", "SUN.DGO", "SUNKEN.CGO", "SWA.DGO", "TIT.DGO", "TRA.DGO", "VI1.DGO",
-                 "VI2.DGO", "VI3.DGO", "VILLAGEP.CGO", "WATER-AN.CGO"],*/
+                 "VI2.DGO", "VI3.DGO", "VILLAGEP.CGO", "WATER-AN.CGO"],
 
     "write_disassembly":true,
     "write_hex_near_instructions":false,
@@ -27,5 +27,10 @@
     "write_scripts":false,
 
     // Experimental Stuff
-    "find_basic_blocks":true
+    "find_basic_blocks":true,
+
+    "asm_functions_by_name":[
+        // gcommon
+        "ash", "abs", "min", "max"
+    ]
 }

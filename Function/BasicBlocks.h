@@ -20,5 +20,4 @@ std::vector<BasicBlock> find_blocks_in_function(const LinkedObjectFile& file,
                                                 int seg,
                                                 const Function& func);
 
-
 #endif  // JAK_DISASSEMBLER_BASICBLOCKS_H

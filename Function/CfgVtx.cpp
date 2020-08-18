@@ -11,7 +11,7 @@
 /*!
  * Make this vertex a child vertex of new_parent!
  */
-void CfgVtx::parent_claim(CfgVtx *new_parent) {
+void CfgVtx::parent_claim(CfgVtx* new_parent) {
   parent = new_parent;
 
   // clear out all this junk - we don't need it now that we are a part of the "real" CFG!
@@ -26,7 +26,7 @@ void CfgVtx::parent_claim(CfgVtx *new_parent) {
  * Replace reference to old_pred as a predecessor with new_pred.
  * Errors if old_pred wasn't referenced.
  */
-void CfgVtx::replace_pred_and_check(CfgVtx *old_pred, CfgVtx *new_pred) {
+void CfgVtx::replace_pred_and_check(CfgVtx* old_pred, CfgVtx* new_pred) {
   bool replaced = false;
   for (auto& x : pred) {
     if (x == old_pred) {
@@ -42,14 +42,14 @@ void CfgVtx::replace_pred_and_check(CfgVtx *old_pred, CfgVtx *new_pred) {
  * Replace references to old_succ with new_succ in the successors.
  * Errors if old_succ wasn't replaced.
  */
-void CfgVtx::replace_succ_and_check(CfgVtx *old_succ, CfgVtx *new_succ) {
+void CfgVtx::replace_succ_and_check(CfgVtx* old_succ, CfgVtx* new_succ) {
   bool replaced = false;
-  if(succ_branch == old_succ) {
+  if (succ_branch == old_succ) {
     succ_branch = new_succ;
     replaced = true;
   }
 
-  if(succ_ft == old_succ) {
+  if (succ_ft == old_succ) {
     succ_ft = new_succ;
     replaced = true;
   }
@@ -62,23 +62,23 @@ void CfgVtx::replace_succ_and_check(CfgVtx *old_succ, CfgVtx *new_succ) {
  * Doesn't insert duplicates.
  * Error if all old preds aren't found.
  */
-void CfgVtx::replace_preds_with_and_check(std::vector<CfgVtx *> old_preds, CfgVtx *new_pred) {
+void CfgVtx::replace_preds_with_and_check(std::vector<CfgVtx*> old_preds, CfgVtx* new_pred) {
   std::vector<bool> found(old_preds.size(), false);
 
   std::vector<CfgVtx*> new_pred_list;
 
-  for(auto* existing_pred : pred) {
+  for (auto* existing_pred : pred) {
     bool match = false;
     size_t idx = -1;
-    for(size_t i = 0; i < old_preds.size(); i++) {
-      if(existing_pred == old_preds[i]) {
+    for (size_t i = 0; i < old_preds.size(); i++) {
+      if (existing_pred == old_preds[i]) {
         assert(!match);
         idx = i;
         match = true;
       }
     }
 
-    if(match) {
+    if (match) {
       found.at(idx) = true;
     } else {
       new_pred_list.push_back(existing_pred);
@@ -88,36 +88,36 @@ void CfgVtx::replace_preds_with_and_check(std::vector<CfgVtx *> old_preds, CfgVt
   new_pred_list.push_back(new_pred);
   pred = new_pred_list;
 
-  for(auto x : found) {
+  for (auto x : found) {
     assert(x);
   }
 }
 
 std::string CfgVtx::links_to_string() {
   std::string result;
-  if(parent) {
+  if (parent) {
     result += "  parent: " + parent->to_string() + "\n";
   }
 
-  if(succ_branch) {
+  if (succ_branch) {
     result += "  succ_branch: " + succ_branch->to_string() + "\n";
   }
 
-  if(succ_ft) {
+  if (succ_ft) {
     result += "  succ_ft: " + succ_ft->to_string() + "\n";
   }
 
-  if(next) {
+  if (next) {
     result += "  next: " + next->to_string() + "\n";
   }
 
-  if(prev) {
+  if (prev) {
     result += "  prev: " + prev->to_string() + "\n";
   }
 
-  if(!pred.empty()) {
+  if (!pred.empty()) {
     result += "  preds:\n";
-    for(auto* x : pred) {
+    for (auto* x : pred) {
       result += "    " + x->to_string() + "\n";
     }
   }
@@ -129,7 +129,7 @@ std::string CfgVtx::links_to_string() {
 /////////////////////////////////////////
 
 std::string BlockVtx::to_string() {
-  if(is_early_exit_block) {
+  if (is_early_exit_block) {
     return "Block (EA) " + std::to_string(block_id);
   } else {
     return "Block " + std::to_string(block_id);
@@ -187,7 +187,8 @@ std::string WhileLoop::to_string() {
 }
 
 std::shared_ptr<Form> WhileLoop::to_form() {
-  std::vector<std::shared_ptr<Form>> forms = {toForm("while"), condition->to_form(), body->to_form()};
+  std::vector<std::shared_ptr<Form>> forms = {toForm("while"), condition->to_form(),
+                                              body->to_form()};
   return buildList(forms);
 }
 
@@ -227,7 +228,7 @@ std::string ControlFlowGraph::to_dot() {
   }
   result += "\n" + invis + " [style=invis];\n}\n";
   result += "\n\n";
-  for_each_top_level_vtx([&](CfgVtx* vtx){
+  for_each_top_level_vtx([&](CfgVtx* vtx) {
     result += "VTX: " + vtx->to_string() + "\n" + vtx->links_to_string() + "\n";
     return true;
   });
@@ -339,121 +340,172 @@ std::string ControlFlowGraph::to_form_string() {
  * Vertices can be nullptr, in which case it always return false.
  * They should be in the order the blocks appear in memory (this is checked just in case)
  */
-bool ControlFlowGraph::is_if_else(CfgVtx *b0, CfgVtx *b1, CfgVtx *b2, CfgVtx *b3) {
+bool ControlFlowGraph::is_if_else(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2, CfgVtx* b3) {
   // check existance
-  if(!b0 || !b1 || !b2 || !b3) return false;
+  if (!b0 || !b1 || !b2 || !b3)
+    return false;
 
   // check verts
-  if(b0->next != b1) return false;
-  if(b0->succ_ft != b1) return false;
-  if(b0->succ_branch != b2) return false;
-  if(b0->end_branch.branch_always) return false;
-  if(b0->end_branch.branch_likely) return false;
+  if (b0->next != b1)
+    return false;
+  if (b0->succ_ft != b1)
+    return false;
+  if (b0->succ_branch != b2)
+    return false;
+  if (b0->end_branch.branch_always)
+    return false;
+  if (b0->end_branch.branch_likely)
+    return false;
   assert(b0->end_branch.has_branch);
   // b0 prev, pred don't care
 
-  if(b1->prev != b0) return false;
-  if(!b1->has_pred(b0)) return false;
-  if(b1->pred.size() != 1) return false;
-  if(b1->next != b2) return false;
-  if(b1->succ_ft) return false;
-  if(b1->succ_branch != b3) return false;
+  if (b1->prev != b0)
+    return false;
+  if (!b1->has_pred(b0))
+    return false;
+  if (b1->pred.size() != 1)
+    return false;
+  if (b1->next != b2)
+    return false;
+  if (b1->succ_ft)
+    return false;
+  if (b1->succ_branch != b3)
+    return false;
   assert(b1->end_branch.branch_always);
   assert(b1->end_branch.has_branch);
-  if(b1->end_branch.branch_likely) return false;
+  if (b1->end_branch.branch_likely)
+    return false;
 
-  if(b2->prev != b1) return false;
-  if(!b2->has_pred(b0)) return false;
-  if(b2->pred.size() != 1) return false;
-  if(b2->next != b3) return false;
-  if(b2->succ_branch) return false;
+  if (b2->prev != b1)
+    return false;
+  if (!b2->has_pred(b0))
+    return false;
+  if (b2->pred.size() != 1)
+    return false;
+  if (b2->next != b3)
+    return false;
+  if (b2->succ_branch)
+    return false;
   assert(!b2->end_branch.has_branch);
-  if(b2->succ_ft != b3) return false;
+  if (b2->succ_ft != b3)
+    return false;
 
-  if(b3->prev != b2) return false;
-  if(!b3->has_pred(b2)) return false;
-  if(!b3->has_pred(b1)) return false;
+  if (b3->prev != b2)
+    return false;
+  if (!b3->has_pred(b2))
+    return false;
+  if (!b3->has_pred(b1))
+    return false;
 
   return true;
 }
 
-bool ControlFlowGraph::is_sequence(CfgVtx *b0, CfgVtx *b1) {
-  if(!b0 || !b1) return false;
-  if(b0->next != b1) return false;
-  if(b0->succ_ft != b1) {
+bool ControlFlowGraph::is_sequence(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1)
+    return false;
+  if (b0->next != b1)
+    return false;
+  if (b0->succ_ft != b1) {
     // may unconditionally branch to get to a loop.
-    if(b0->succ_branch != b1) return false;
-    if(b0->succ_ft) return false;
+    if (b0->succ_branch != b1)
+      return false;
+    if (b0->succ_ft)
+      return false;
     assert(b0->end_branch.branch_always);
   } else {
     // falls through
-    if(b0->succ_branch) return false;
+    if (b0->succ_branch)
+      return false;
     assert(!b0->end_branch.has_branch);
   }
 
-  if(b1->prev != b0) return false;
-  if(b1->pred.size() != 1) return false;
-  if(!b1->has_pred(b0)) return false;
-  if(b1->succ_branch == b0) return false;
+  if (b1->prev != b0)
+    return false;
+  if (b1->pred.size() != 1)
+    return false;
+  if (!b1->has_pred(b0))
+    return false;
+  if (b1->succ_branch == b0)
+    return false;
 
   return true;
 }
 
-bool ControlFlowGraph::is_sequence_of_non_sequences(CfgVtx *b0, CfgVtx *b1) {
-  if(!b0 || !b1) return false;
-  if(dynamic_cast<SequenceVtx*>(b0) || dynamic_cast<SequenceVtx*>(b1)) return false;
+bool ControlFlowGraph::is_sequence_of_non_sequences(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1)
+    return false;
+  if (dynamic_cast<SequenceVtx*>(b0) || dynamic_cast<SequenceVtx*>(b1))
+    return false;
   return is_sequence(b0, b1);
 }
 
-bool ControlFlowGraph::is_sequence_of_sequence_and_non_sequence(CfgVtx *b0, CfgVtx *b1) {
-  if(!b0 || !b1) return false;
-  if(!dynamic_cast<SequenceVtx*>(b0)) return false;
-  if(dynamic_cast<SequenceVtx*>(b1)) return false;
+bool ControlFlowGraph::is_sequence_of_sequence_and_non_sequence(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1)
+    return false;
+  if (!dynamic_cast<SequenceVtx*>(b0))
+    return false;
+  if (dynamic_cast<SequenceVtx*>(b1))
+    return false;
   return is_sequence(b0, b1);
 }
 
-bool ControlFlowGraph::is_while_loop(CfgVtx *b0, CfgVtx *b1, CfgVtx *b2) {
+bool ControlFlowGraph::is_while_loop(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2) {
   // todo - check delay slots!
-  if(!b0 || !b1 || !b2) return false;
+  if (!b0 || !b1 || !b2)
+    return false;
 
   // check next and prev
-  if(b0->next != b1) return false;
-  if(b1->next != b2) return false;
-  if(b2->prev != b1) return false;
-  if(b1->prev != b0) return false;
+  if (b0->next != b1)
+    return false;
+  if (b1->next != b2)
+    return false;
+  if (b2->prev != b1)
+    return false;
+  if (b1->prev != b0)
+    return false;
 
-//  // check branch to condition at the beginning
-  if(b0->succ_ft) return false;
-  if(b0->succ_branch != b2) return false;
+  //  // check branch to condition at the beginning
+  if (b0->succ_ft)
+    return false;
+  if (b0->succ_branch != b2)
+    return false;
   assert(b0->end_branch.has_branch);
   assert(b0->end_branch.branch_always);
-  if(b0->end_branch.branch_likely) return false;
+  if (b0->end_branch.branch_likely)
+    return false;
 
   // check b1 -> b2 fallthrough
-  if(b1->succ_ft != b2) return false;
-  if(b1->succ_branch) return false;
+  if (b1->succ_ft != b2)
+    return false;
+  if (b1->succ_branch)
+    return false;
   assert(!b1->end_branch.has_branch);
-  if(!b2->has_pred(b0)) {
-    printf("expect b2 (%s) to have pred b0 (%s)\n", b2->to_string().c_str(), b0->to_string().c_str());
+  if (!b2->has_pred(b0)) {
+    printf("expect b2 (%s) to have pred b0 (%s)\n", b2->to_string().c_str(),
+           b0->to_string().c_str());
     printf("but it doesn't! instead it has:\n");
-    for(auto* x : b2->pred) {
+    for (auto* x : b2->pred) {
       printf(" %s\n", x->to_string().c_str());
     }
-    if(b0->succ_ft) {
+    if (b0->succ_ft) {
       printf("b0's succ_ft: %s\n", b0->succ_ft->to_string().c_str());
     }
-    if(b0->succ_branch) {
+    if (b0->succ_branch) {
       printf("b0's succ_branch: %s\n", b0->succ_branch->to_string().c_str());
     }
   }
   assert(b2->has_pred(b0));
   assert(b2->has_pred(b1));
-  if(b2->pred.size() != 2) return false;
+  if (b2->pred.size() != 2)
+    return false;
 
   // check b2's branch back
-  if(b2->succ_branch != b1) return false;
-  if(b2->end_branch.branch_likely) return false;
-  if(b2->end_branch.branch_always) return false;
+  if (b2->succ_branch != b1)
+    return false;
+  if (b2->end_branch.branch_likely)
+    return false;
+  if (b2->end_branch.branch_always)
+    return false;
 
   return true;
 }
@@ -478,12 +530,13 @@ bool ControlFlowGraph::find_if_else_top_level() {
   //  rest of code
   bool found_one = false;
   bool needs_work = true;
-  while(needs_work) {
-    needs_work = false; // until we change something, assume we're done.
+  while (needs_work) {
+    needs_work = false;  // until we change something, assume we're done.
 
     for_each_top_level_vtx([&](CfgVtx* vtx) {
       // return true means "try again with a different vertex"
-      // return false means "I changed something, bail out so we can start from the beginning again."
+      // return false means "I changed something, bail out so we can start from the beginning
+      // again."
 
       // attempt to match b0, b1, b2, b3
       auto* b0 = vtx;
@@ -491,7 +544,7 @@ bool ControlFlowGraph::find_if_else_top_level() {
       auto* b2 = vtx->succ_branch;
       auto* b3 = b2 ? b2->succ_ft : nullptr;
 
-      if(is_if_else(b0, b1, b2, b3)) {
+      if (is_if_else(b0, b1, b2, b3)) {
         needs_work = true;
 
         // create the new vertex!
@@ -501,7 +554,7 @@ bool ControlFlowGraph::find_if_else_top_level() {
         new_vtx->false_case = b2;
 
         // link new vertex pred
-        for(auto* new_pred : b0->pred) {
+        for (auto* new_pred : b0->pred) {
           new_pred->replace_succ_and_check(b0, new_vtx);
         }
         new_vtx->pred = b0->pred;
@@ -512,7 +565,7 @@ bool ControlFlowGraph::find_if_else_top_level() {
 
         // setup next/prev
         new_vtx->prev = b0->prev;
-        if(new_vtx->prev) {
+        if (new_vtx->prev) {
           new_vtx->prev->next = new_vtx;
         }
         new_vtx->next = b3;
@@ -524,7 +577,7 @@ bool ControlFlowGraph::find_if_else_top_level() {
         found_one = true;
         return false;
       } else {
-        return true; // try again!
+        return true;  // try again!
       }
     });
   }
@@ -539,14 +592,14 @@ bool ControlFlowGraph::find_while_loop_top_level() {
   // B2 can end with whatever
   bool found_one = false;
   bool needs_work = true;
-  while(needs_work) {
+  while (needs_work) {
     needs_work = false;
     for_each_top_level_vtx([&](CfgVtx* vtx) {
       auto* b0 = vtx;
       auto* b1 = vtx->next;
       auto* b2 = b1 ? b1->next : nullptr;
 
-      if(is_while_loop(b0, b1, b2)) {
+      if (is_while_loop(b0, b1, b2)) {
         needs_work = true;
 
         auto* new_vtx = alloc<WhileLoop>();
@@ -565,7 +618,7 @@ bool ControlFlowGraph::find_while_loop_top_level() {
         b0->next = new_vtx;
 
         new_vtx->next = b2->next;
-        if(new_vtx->next) {
+        if (new_vtx->next) {
           new_vtx->next->prev = new_vtx;
         }
 
@@ -581,7 +634,6 @@ bool ControlFlowGraph::find_while_loop_top_level() {
   return found_one;
 }
 
-
 /*!
  * Find and insert at most one sequence. Return true if sequence is inserted.
  * To generate more readable debug output, we should aim to run this as infrequent and as
@@ -589,34 +641,34 @@ bool ControlFlowGraph::find_while_loop_top_level() {
  */
 bool ControlFlowGraph::find_seq_top_level() {
   bool replaced = false;
-  for_each_top_level_vtx([&](CfgVtx* vtx){
+  for_each_top_level_vtx([&](CfgVtx* vtx) {
     auto* b0 = vtx;
     auto* b1 = vtx->next;
 
-    if(is_sequence_of_non_sequences(b0, b1)) { // todo, avoid nesting sequences.
+    if (is_sequence_of_non_sequences(b0, b1)) {  // todo, avoid nesting sequences.
       replaced = true;
 
       auto* new_seq = alloc<SequenceVtx>();
       new_seq->seq.push_back(b0);
       new_seq->seq.push_back(b1);
 
-      for(auto* new_pred : b0->pred) {
+      for (auto* new_pred : b0->pred) {
         new_pred->replace_succ_and_check(b0, new_seq);
       }
       new_seq->pred = b0->pred;
 
-      for(auto* new_succ : b1->succs()) {
+      for (auto* new_succ : b1->succs()) {
         new_succ->replace_pred_and_check(b1, new_seq);
       }
       new_seq->succ_ft = b1->succ_ft;
       new_seq->succ_branch = b1->succ_branch;
 
       new_seq->prev = b0->prev;
-      if(new_seq->prev) {
+      if (new_seq->prev) {
         new_seq->prev->next = new_seq;
       }
       new_seq->next = b1->next;
-      if(new_seq->next) {
+      if (new_seq->next) {
         new_seq->next->prev = new_seq;
       }
 
@@ -626,20 +678,20 @@ bool ControlFlowGraph::find_seq_top_level() {
       return false;
     }
 
-    if(is_sequence_of_sequence_and_non_sequence(b0, b1)) {
+    if (is_sequence_of_sequence_and_non_sequence(b0, b1)) {
       replaced = true;
       auto* seq = dynamic_cast<SequenceVtx*>(b0);
       assert(seq);
 
       seq->seq.push_back(b1);
 
-      for(auto* new_succ : b1->succs()) {
+      for (auto* new_succ : b1->succs()) {
         new_succ->replace_pred_and_check(b1, b0);
       }
       seq->succ_ft = b1->succ_ft;
       seq->succ_branch = b1->succ_branch;
       seq->next = b1->next;
-      if(seq->next) {
+      if (seq->next) {
         seq->next->prev = seq;
       }
 
@@ -648,15 +700,11 @@ bool ControlFlowGraph::find_seq_top_level() {
       return false;
     }
 
-
-
-    return true; // keep looking
+    return true;  // keep looking
   });
-
 
   return replaced;
 }
-
 
 /*!
  * Create vertices for basic blocks.  Should only be called once to create all blocks at once.
@@ -718,7 +766,7 @@ void ControlFlowGraph::flag_early_exit(const std::vector<BasicBlock>& blocks) {
   auto* b = m_blocks.back();
   const auto& block = blocks.at(b->block_id);
 
-  if(block.start_word == block.end_word) {
+  if (block.start_word == block.end_word) {
     b->is_early_exit_block = true;
     assert(!b->end_branch.has_branch);
   }
@@ -727,10 +775,8 @@ void ControlFlowGraph::flag_early_exit(const std::vector<BasicBlock>& blocks) {
 /*!
  * Build and resolve a Control Flow Graph as much as possible.
  */
-std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file,
-                                            int seg,
-                                            const Function& func) {
-//  printf("build cfg!\n");
+std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file, int seg, Function& func) {
+  //  printf("build cfg!\n");
   auto cfg = std::make_shared<ControlFlowGraph>();
 
   const auto& blocks = cfg->create_blocks(func.basic_blocks.size());
@@ -810,12 +856,16 @@ std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file,
   cfg->flag_early_exit(func.basic_blocks);
 
   bool changed = true;
-  while(changed) {
+  while (changed) {
     changed = false;
     changed = changed || cfg->find_while_loop_top_level();
-//    printf("while loops? %d\n", changed);
+    ////    printf("while loops? %d\n", changed);
     changed = changed || cfg->find_if_else_top_level();
     changed = changed || cfg->find_seq_top_level();
+  }
+
+  if (!cfg->is_fully_resolved()) {
+    func.warnings += "Failed to fully resolve CFG\n";
   }
 
   return cfg;

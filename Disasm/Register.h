@@ -142,6 +142,4 @@ class Register {
   uint16_t id = -1;
 };
 
-
-
 #endif  // NEXT_REGISTER_H

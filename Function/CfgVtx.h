@@ -269,8 +269,6 @@ class ControlFlowGraph {
 
 class LinkedObjectFile;
 class Function;
-std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file,
-                                            int seg,
-                                            const Function& func);
+std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file, int seg, Function& func);
 
 #endif  // JAK_DISASSEMBLER_CFGVTX_H

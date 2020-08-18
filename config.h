@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_set>
 
 struct Config {
   int game_version = -1;
@@ -14,6 +15,7 @@ struct Config {
   bool disassemble_objects_without_functions = false;
   bool find_basic_blocks = false;
   bool write_hex_near_instructions = false;
+  std::unordered_set<std::string> asm_functions_by_name;
   // ...
 };
 

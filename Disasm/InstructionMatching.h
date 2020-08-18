@@ -20,27 +20,26 @@ struct MatchParam {
   bool operator!=(const T& other) { return !(*this == other); }
 };
 
-
 bool is_no_link_gpr_store(const Instruction& instr,
                           MatchParam<int> size,
                           MatchParam<Register> src,
                           MatchParam<int> offset,
                           MatchParam<Register> dest);
 bool is_no_ll_gpr_load(const Instruction& instr,
-                         MatchParam<int> size,
-                         MatchParam<bool> is_signed,
-                         MatchParam<Register> dst_reg,
-                         MatchParam<int> offset,
-                         MatchParam<Register> mem_reg);
+                       MatchParam<int> size,
+                       MatchParam<bool> is_signed,
+                       MatchParam<Register> dst_reg,
+                       MatchParam<int> offset,
+                       MatchParam<Register> mem_reg);
 
 bool is_no_ll_fpr_store(const Instruction& instr,
-                          MatchParam<Register> src,
-                          MatchParam<int> offset,
-                          MatchParam<Register> dest);
+                        MatchParam<Register> src,
+                        MatchParam<int> offset,
+                        MatchParam<Register> dest);
 bool is_no_ll_fpr_load(const Instruction& instr,
-                         MatchParam<Register> dst_reg,
-                         MatchParam<int> offset,
-                         MatchParam<Register> mem_reg);
+                       MatchParam<Register> dst_reg,
+                       MatchParam<int> offset,
+                       MatchParam<Register> mem_reg);
 
 bool is_gpr_store(const Instruction& instr);
 bool is_gpr_load(const Instruction& instr, MatchParam<bool> is_signed);
@@ -53,10 +52,10 @@ bool is_gpr_3(const Instruction& instr,
               MatchParam<Register> src1);
 
 bool is_gpr_2_imm_int(const Instruction& instr,
-                  MatchParam<InstructionKind> kind,
-                  MatchParam<Register> dst,
-                  MatchParam<Register> src,
-                  MatchParam<int32_t> imm);
+                      MatchParam<InstructionKind> kind,
+                      MatchParam<Register> dst,
+                      MatchParam<Register> src,
+                      MatchParam<int32_t> imm);
 
 bool is_nop(const Instruction& instr);
 bool is_jr_ra(const Instruction& instr);

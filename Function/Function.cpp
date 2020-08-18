@@ -66,8 +66,8 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
       auto& instr = instructions.at(idx);
       // storing stack pointer on the stack is done by some ASM kernel functions
       if (instr.kind == InstructionKind::SW && instr.get_src(0).get_reg() == make_gpr(Reg::SP)) {
-        printf("[Warning] Suspected ASM function based on this instruction in prologue: %s\n",
-               instr.to_string(file).c_str());
+        printf("[Warning] %s Suspected ASM function based on this instruction in prologue: %s\n",
+               guessed_name.to_string().c_str(), instr.to_string(file).c_str());
         warnings += "Flagged as ASM function because of " + instr.to_string(file) + "\n";
         suspected_asm = true;
         return;
@@ -89,8 +89,8 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
       // storing s7 on the stack is done by interrupt handlers, which we probably don't want to
       // support
       if (instr.kind == InstructionKind::SD && instr.get_src(0).get_reg() == make_gpr(Reg::S7)) {
-        printf("[Warning] Suspected ASM function based on this instruction in prologue: %s\n",
-               instr.to_string(file).c_str());
+        printf("[Warning] %s Suspected ASM function based on this instruction in prologue: %s\n",
+               guessed_name.to_string().c_str(), instr.to_string(file).c_str());
         warnings += "Flagged as ASM function because of " + instr.to_string(file) + "\n";
         suspected_asm = true;
         return;
@@ -128,8 +128,9 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
       // check.
       if (store_reg == make_gpr(Reg::R0)) {
         printf(
-            "[Warning] Stack Zeroing Detected in Function::analyze_prologue, prologue may be "
-            "wrong\n");
+            "[Warning] %s Stack Zeroing Detected in Function::analyze_prologue, prologue may be "
+            "wrong\n",
+            guessed_name.to_string().c_str());
         warnings += "Stack Zeroing Detected, prologue may be wrong\n";
         expect_nothing_after_gprs = true;
         break;
@@ -139,7 +140,9 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
       // avoid false positives here!
       if (store_reg == make_gpr(Reg::A0)) {
         suspected_asm = true;
-        printf("[Warning] Suspected ASM function because register $a0 was stored on the stack!\n");
+        printf(
+            "[Warning] %s Suspected ASM function because register $a0 was stored on the stack!\n",
+            guessed_name.to_string().c_str());
         warnings += "a0 on stack detected, flagging as asm\n";
         return;
       }
@@ -156,7 +159,8 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
         assert(this_offset == prologue.gpr_backup_offset + 16 * i);
         if (this_reg != get_expected_gpr_backup(i, n_gpr_backups)) {
           suspected_asm = true;
-          printf("[Warning] Suspected asm function that isn't flagged due to stack store %s\n",
+          printf("[Warning] %s Suspected asm function that isn't flagged due to stack store %s\n",
+                 guessed_name.to_string().c_str(),
                  instructions.at(idx + i).to_string(file).c_str());
           warnings += "Suspected asm function due to stack store: " +
                       instructions.at(idx + i).to_string(file) + "\n";
@@ -185,7 +189,8 @@ void Function::analyze_prologue(const LinkedObjectFile& file) {
           assert(this_offset == prologue.fpr_backup_offset + 4 * i);
           if (this_reg != get_expected_fpr_backup(i, n_fpr_backups)) {
             suspected_asm = true;
-            printf("[Warning] Suspected asm function that isn't flagged due to stack store %s\n",
+            printf("[Warning] %s Suspected asm function that isn't flagged due to stack store %s\n",
+                   guessed_name.to_string().c_str(),
                    instructions.at(idx + i).to_string(file).c_str());
             warnings += "Suspected asm function due to stack store: " +
                         instructions.at(idx + i).to_string(file) + "\n";
@@ -292,22 +297,22 @@ std::string Function::Prologue::to_string(int indent) const {
   char* buff_ptr = buff;
   std::string indent_str(indent, ' ');
   if (!decoded) {
-    return indent_str + "BAD PROLOGUE";
+    return indent_str + ";BAD PROLOGUE";
   }
-  buff_ptr += sprintf(buff_ptr, "%sstack: total 0x%02x, fp? %d ra? %d ep? %d", indent_str.c_str(),
+  buff_ptr += sprintf(buff_ptr, "%s;stack: total 0x%02x, fp? %d ra? %d ep? %d", indent_str.c_str(),
                       total_stack_usage, fp_set, ra_backed_up, epilogue_ok);
   if (n_stack_var_bytes) {
-    buff_ptr += sprintf(buff_ptr, "\n%sstack_vars: %d bytes at %d", indent_str.c_str(),
+    buff_ptr += sprintf(buff_ptr, "\n%s;stack_vars: %d bytes at %d", indent_str.c_str(),
                         n_stack_var_bytes, stack_var_offset);
   }
   if (n_gpr_backup) {
-    buff_ptr += sprintf(buff_ptr, "\n%sgprs:", indent_str.c_str());
+    buff_ptr += sprintf(buff_ptr, "\n%s;gprs:", indent_str.c_str());
     for (int i = 0; i < n_gpr_backup; i++) {
       buff_ptr += sprintf(buff_ptr, " %s", gpr_backups.at(i).to_string().c_str());
     }
   }
   if (n_fpr_backup) {
-    buff_ptr += sprintf(buff_ptr, "\n%sfprs:", indent_str.c_str());
+    buff_ptr += sprintf(buff_ptr, "\n%s;fprs:", indent_str.c_str());
     for (int i = 0; i < n_fpr_backup; i++) {
       buff_ptr += sprintf(buff_ptr, " %s", fpr_backups.at(i).to_string().c_str());
     }
@@ -345,7 +350,9 @@ void Function::check_epilogue(const LinkedObjectFile& file) {
       assert(is_jr_ra(instructions.at(idx)));
       idx--;
       printf(
-          "[Warning] Double Return Epilogue Hack!  This is probably an ASM function in disguise\n");
+          "[Warning] %s Double Return Epilogue Hack!  This is probably an ASM function in "
+          "disguise\n",
+          guessed_name.to_string().c_str());
       warnings += "Double Return Epilogue - this is probably an ASM function\n";
     }
     // delay slot should be daddiu sp, sp, offset
@@ -412,55 +419,50 @@ void Function::check_epilogue(const LinkedObjectFile& file) {
  * Updates the guessed_name of the function and updates type_info
  */
 void Function::find_global_function_defs(LinkedObjectFile& file) {
-  for (auto& block : basic_blocks) {
-    int label_id = -1;
-    Register reg;
+  int state = 0;
+  int label_id = -1;
+  Register reg;
 
-    int state = 0;
+  for (const auto& instr : instructions) {
+    // look for LUIs always
+    if (instr.kind == InstructionKind::LUI && instr.get_src(0).kind == InstructionAtom::LABEL) {
+      state = 1;
+      reg = instr.get_dst(0).get_reg();
+      label_id = instr.get_src(0).get_label();
+      assert(label_id != -1);
+      continue;
+    }
 
-    for (int idx = block.start_word; idx < block.end_word; idx++) {
-      const auto& instr = instructions.at(idx);
-
-      // look for LUIs always
-      if (instr.kind == InstructionKind::LUI && instr.get_src(0).kind == InstructionAtom::LABEL) {
-        state = 1;
+    if (state == 1) {
+      // Look for ORI
+      if (instr.kind == InstructionKind::ORI && instr.get_src(0).get_reg() == reg &&
+          instr.get_src(1).get_label() == label_id) {
+        state = 2;
         reg = instr.get_dst(0).get_reg();
-        label_id = instr.get_src(0).get_label();
-        assert(label_id != -1);
         continue;
+      } else {
+        state = 0;
       }
+    }
 
-      if (state == 1) {
-        // Look for ORI
-        if (instr.kind == InstructionKind::ORI && instr.get_src(0).get_reg() == reg &&
-            instr.get_src(1).get_label() == label_id) {
-          state = 2;
-          reg = instr.get_dst(0).get_reg();
-          continue;
+    if (state == 2) {
+      // Look for SW
+      if (instr.kind == InstructionKind::SW && instr.get_src(0).get_reg() == reg &&
+          instr.get_src(2).get_reg() == make_gpr(Reg::S7)) {
+        // done!
+        std::string name = instr.get_src(1).get_sym();
+        if (!file.label_points_to_code(label_id)) {
+          //            printf("discard as not code: %s\n", name.c_str());
         } else {
-          state = 0;
+          auto& func = file.get_function_at_label(label_id);
+          assert(func.guessed_name.empty());
+          func.guessed_name.set_as_global(name);
+          get_type_info().inform_symbol(name, TypeSpec("function"));
+          // todo - inform function.
         }
-      }
 
-      if (state == 2) {
-        // Look for SW
-        if (instr.kind == InstructionKind::SW && instr.get_src(0).get_reg() == reg &&
-            instr.get_src(2).get_reg() == make_gpr(Reg::S7)) {
-          // done!
-          std::string name = instr.get_src(1).get_sym();
-          if(!file.label_points_to_code(label_id)) {
-//            printf("discard as not code: %s\n", name.c_str());
-          } else {
-            auto& func = file.get_function_at_label(label_id);
-            assert(func.guessed_name.empty());
-            func.guessed_name = name;
-            get_type_info().inform_symbol(name, TypeSpec("function"));
-            // todo - inform function.
-          }
-
-        } else {
-          state = 0;
-        }
+      } else {
+        state = 0;
       }
     }
   }
