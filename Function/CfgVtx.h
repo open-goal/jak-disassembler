@@ -69,6 +69,7 @@ class CfgVtx {
   CfgVtx* next = nullptr;         // next code in memory
   CfgVtx* prev = nullptr;         // previous code in memory
   std::vector<CfgVtx*> pred;      // all vertices which have us as succ_branch or succ_ft
+  int uid = -1;
 
   struct {
     bool has_branch = false;     // does the block end in a branch (any kind)?
@@ -102,7 +103,7 @@ class CfgVtx {
     if (succ_branch) {
       result.push_back(succ_branch);
     }
-    if (succ_ft) {
+    if (succ_ft && succ_ft != succ_branch) {
       result.push_back(succ_ft);
     }
     return result;
@@ -159,36 +160,44 @@ class SequenceVtx : public CfgVtx {
 };
 
 /*!
- * A vertex representing an "if else" statement. This is a statement with a single condition,
- * a vertex which taken if true, and a vertex which is take if false.
- *
- * The current behavior is that the condition vertex grabs an entire vertex
- * as condition, but attempts to keep this condition vertex as small as possible. However, if
- * the condition does not begin on a block boundary, it will still grab too much.
- *
- * Example:
- * (set! x 1)
- * (set! y 2)
- * (if (< x y) (do-thing) (do-other-thing))
- *
- * it will turn into
- *
- * (if (begin (set! x 1) (set! x 2) (< x y)) (do-thing) (do-other-thing))
- *
-
- * A later step will have to figure out how to "simplify" the branch condition. But we don't
- * have enough information to do this safely now.  Likely this can be included in the s-expression
- map part, as statement generation should figure out when we are cramming a (begin ) form into a
- condition where it probably doesn't make sense.
+ * Representing a (cond ((a b) (c d) ... (else z))) structure.
+ * Note that the first condition ("a" in the above example) may "steal" instructions belonging
+ * to an outer scope and these may eventually need to be "unstolen"
  */
-class IfElseVtx : public CfgVtx {
+class CondWithElse : public CfgVtx {
  public:
   std::string to_string() override;
   std::shared_ptr<Form> to_form() override;
 
-  CfgVtx* condition = nullptr;  // this can be "shared" with the block before it.
-  CfgVtx* true_case = nullptr;
-  CfgVtx* false_case = nullptr;
+  struct Entry {
+    Entry() = default;
+    Entry(CfgVtx* _c, CfgVtx* _b) : condition(_c), body(_b) {}
+    CfgVtx* condition = nullptr;
+    CfgVtx* body = nullptr;
+  };
+
+  std::vector<Entry> entries;
+  CfgVtx* else_vtx = nullptr;
+};
+
+/*!
+ * Representing a (cond ((a b) (c d) ... )) structure.
+ * Note that the first condition ("a" in the above example) may "steal" instructions belonging
+ * to an outer scope and these may eventually need to be "unstolen"
+ */
+class CondNoElse : public CfgVtx {
+ public:
+  std::string to_string() override;
+  std::shared_ptr<Form> to_form() override;
+
+  struct Entry {
+    Entry() = default;
+    Entry(CfgVtx* _c, CfgVtx* _b) : condition(_c), body(_b) {}
+    CfgVtx* condition = nullptr;
+    CfgVtx* body = nullptr;
+  };
+
+  std::vector<Entry> entries;
 };
 
 class WhileLoop : public CfgVtx {
@@ -198,6 +207,45 @@ class WhileLoop : public CfgVtx {
 
   CfgVtx* condition = nullptr;
   CfgVtx* body = nullptr;
+};
+
+class UntilLoop : public CfgVtx {
+ public:
+  std::string to_string() override;
+  std::shared_ptr<Form> to_form() override;
+
+  CfgVtx* condition = nullptr;
+  CfgVtx* body = nullptr;
+};
+
+class UntilLoop_single : public CfgVtx {
+ public:
+  std::string to_string() override;
+  std::shared_ptr<Form> to_form() override;
+
+  CfgVtx* block = nullptr;
+};
+
+class ShortCircuit : public CfgVtx {
+ public:
+  std::string to_string() override;
+  std::shared_ptr<Form> to_form() override;
+  std::vector<CfgVtx*> entries;
+};
+
+class InfiniteLoopBlock : public CfgVtx {
+ public:
+  std::string to_string() override;
+  std::shared_ptr<Form> to_form() override;
+  CfgVtx* block;
+};
+
+class GotoEnd : public CfgVtx {
+ public:
+  std::string to_string() override;
+  std::shared_ptr<Form> to_form() override;
+  CfgVtx* body = nullptr;
+  CfgVtx* unreachable_block = nullptr;
 };
 
 struct BasicBlock;
@@ -222,9 +270,17 @@ class ControlFlowGraph {
   const std::vector<BlockVtx*>& create_blocks(int count);
   void link_fall_through(BlockVtx* first, BlockVtx* second);
   void link_branch(BlockVtx* first, BlockVtx* second);
-  bool find_if_else_top_level();
+  bool find_cond_w_else();
+  bool find_cond_n_else();
+
+  //  bool find_if_else_top_level();
   bool find_seq_top_level();
   bool find_while_loop_top_level();
+  bool find_until_loop();
+  bool find_until1_loop();
+  bool find_short_circuits();
+  bool find_goto_end();
+  bool find_infinite_loop();
 
   /*!
    * Apply a function f to each top-level vertex.
@@ -251,20 +307,26 @@ class ControlFlowGraph {
   T* alloc(Args&&... args) {
     T* new_obj = new T(std::forward<Args>(args)...);
     m_node_pool.push_back(new_obj);
+    new_obj->uid = m_uid++;
     return new_obj;
   }
 
  private:
   //  bool compact_one_in_top_level();
-  bool is_if_else(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2, CfgVtx* b3);
+  //  bool is_if_else(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2, CfgVtx* b3);
   bool is_sequence(CfgVtx* b0, CfgVtx* b1);
   bool is_sequence_of_non_sequences(CfgVtx* b0, CfgVtx* b1);
   bool is_sequence_of_sequence_and_non_sequence(CfgVtx* b0, CfgVtx* b1);
+  bool is_sequence_of_sequence_and_sequence(CfgVtx* b0, CfgVtx* b1);
+  bool is_sequence_of_non_sequence_and_sequence(CfgVtx* b0, CfgVtx* b1);
   bool is_while_loop(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2);
+  bool is_until_loop(CfgVtx* b1, CfgVtx* b2);
+  bool is_goto_end_and_unreachable(CfgVtx* b0, CfgVtx* b1);
   std::vector<BlockVtx*> m_blocks;   // all block nodes, in order.
   std::vector<CfgVtx*> m_node_pool;  // all nodes allocated
   EntryVtx* m_entry;                 // the entry vertex
   ExitVtx* m_exit;                   // the exit vertex
+  int m_uid = 0;
 };
 
 class LinkedObjectFile;

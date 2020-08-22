@@ -31,6 +31,9 @@
 
     "asm_functions_by_name":[
         // gcommon
-        "ash", "abs", "min", "max"
+        "ash", "abs", "min", "max", "collide-do-primitives", "draw-bones-check-longest-edge-asm",
+         "sp-launch-particles-var", "(method 15 collide-shape-prim-mesh)", "(method 15 collide-shape-prim-sphere)",
+         "(method 45 collide-shape)", "cam-layout-save-cam-trans", "kernel-copy-function", "dma-sync-hang", "generic-no-light-dproc", "dma-sync-fast", "bsp-camera-asm",
+         "generic-none-dma-wait", "unpack-comp-rle", "level-remap-texture", "(method 10 collide-edge-hold-list)"
     ]
 }

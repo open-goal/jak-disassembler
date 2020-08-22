@@ -47,6 +47,6 @@ int main(int argc, char** argv) {
   }
 
   printf("%s\n", get_type_info().get_summary().c_str());
-
+//  printf("%s\n", get_type_info().get_all_symbols_debug().c_str());
   return 0;
 }

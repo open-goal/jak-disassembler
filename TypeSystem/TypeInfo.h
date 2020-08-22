@@ -16,6 +16,7 @@ class TypeInfo {
   void inform_type_method_count(const std::string& name, int methods);
 
   std::string get_summary();
+  std::string get_all_symbols_debug();
 
  private:
   std::unordered_map<std::string, GoalType> m_types;

@@ -86,3 +86,13 @@ void TypeInfo::inform_type_method_count(const std::string& name, int methods) {
   m_types.at(name).set_methods(methods);
 }
 
+std::string TypeInfo::get_all_symbols_debug() {
+  std::string result = "const char* all_syms[" + std::to_string(m_symbols.size()) + "] = {";
+  for(auto& x : m_symbols) {
+    result += "\"" + x.first + "\",";
+  }
+  if(!result.empty()) {
+    result.pop_back();
+  }
+  return result + "};";
+}

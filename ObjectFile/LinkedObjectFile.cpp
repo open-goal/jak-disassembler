@@ -586,7 +586,29 @@ std::string LinkedObjectFile::print_disassembly() {
         result += "\n";
       }
       if(func.cfg) {
-        result += func.cfg->to_form_string();
+        result += func.cfg->to_form_string() + "\n";
+
+        int bid = 0;
+        for(auto& block : func.basic_blocks) {
+          in_delay_slot = false;
+          result += "B" + std::to_string(bid++) + "\n";
+          for(auto i = block.start_word; i < block.end_word; i++) {
+            auto label_id = get_label_at(seg, (func.start_word + i) * 4);
+            if (label_id != -1) {
+              result += labels.at(label_id).name + ":\n";
+            }
+            auto& instr = func.instructions.at(i);
+            result += "    " + instr.to_string(*this) + "\n";
+            if (in_delay_slot) {
+              result += "\n";
+              in_delay_slot = false;
+            }
+
+            if (gOpcodeInfo[(int)instr.kind].has_delay_slot) {
+              in_delay_slot = true;
+            }
+          }
+        }
       }
 
       result += "\n\n\n";
@@ -610,6 +632,7 @@ std::string LinkedObjectFile::print_disassembly() {
 
       if (word.kind == LinkedWord::TYPE_PTR && word.symbol_name == "string") {
         result += "; " + get_goal_string(seg, i) + "\n";
+
       }
     }
   }

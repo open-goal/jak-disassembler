@@ -467,3 +467,86 @@ void Function::find_global_function_defs(LinkedObjectFile& file) {
     }
   }
 }
+
+/*!
+ * Look through this function to find calls to method-set! which define methods.
+ * Updates the guessed_name of the function and updates type_info.
+ */
+void Function::find_method_defs(LinkedObjectFile& file) {
+  int state = 0;
+  int label_id = -1;
+  int method_id = -1;
+  Register lui_reg;
+  std::string type_name;
+
+  for (const auto& instr : instructions) {
+    // look for lw t9, method-set!(s7)
+    if (instr.kind == InstructionKind::LW && instr.get_dst(0).get_reg() == make_gpr(Reg::T9) &&
+        instr.get_src(0).kind == InstructionAtom::IMM_SYM &&
+        instr.get_src(0).get_sym() == "method-set!" &&
+        instr.get_src(1).get_reg() == make_gpr(Reg::S7)) {
+      state = 1;
+      continue;
+    }
+
+    if (state == 1) {
+      // look for lw a0, type-name(s7)
+      if (instr.kind == InstructionKind::LW && instr.get_dst(0).get_reg() == make_gpr(Reg::A0) &&
+          instr.get_src(0).kind == InstructionAtom::IMM_SYM &&
+          instr.get_src(1).get_reg() == make_gpr(Reg::S7)) {
+        type_name = instr.get_src(0).get_sym();
+        state = 2;
+        continue;
+      } else {
+        state = 0;
+      }
+    }
+
+    if (state == 2) {
+      // look for addiu a1, r0, x
+      if (instr.kind == InstructionKind::ADDIU && instr.get_dst(0).get_reg() == make_gpr(Reg::A1) &&
+          instr.get_src(0).get_reg() == make_gpr(Reg::R0)) {
+        method_id = instr.get_src(1).get_imm();
+        state = 3;
+        continue;
+      } else {
+        state = 0;
+      }
+    }
+
+    if (state == 3) {
+      // look for lui
+      if (instr.kind == InstructionKind::LUI && instr.get_src(0).kind == InstructionAtom::LABEL) {
+        state = 4;
+        lui_reg = instr.get_dst(0).get_reg();
+        label_id = instr.get_src(0).get_label();
+        assert(label_id != -1);
+        continue;
+      } else {
+        state = 0;
+      }
+    }
+
+    if (state == 4) {
+      if (instr.kind == InstructionKind::ORI && instr.get_src(0).get_reg() == lui_reg &&
+          instr.get_src(1).get_label() == label_id) {
+        state = 5;
+        lui_reg = instr.get_dst(0).get_reg();
+        continue;
+      } else {
+        state = 0;
+      }
+    }
+
+    if (state == 5) {
+      if (instr.kind == InstructionKind::JALR && instr.get_dst(0).get_reg() == make_gpr(Reg::RA) &&
+          instr.get_src(0).get_reg() == make_gpr(Reg::T9)) {
+        auto& func = file.get_function_at_label(label_id);
+        assert(func.guessed_name.empty());
+        func.guessed_name.set_as_method(type_name, method_id);
+        state = 0;
+        continue;
+      }
+    }
+  }
+}

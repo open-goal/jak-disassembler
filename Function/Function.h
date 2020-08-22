@@ -47,7 +47,13 @@ struct FunctionName {
     function_name = std::move(name);
   }
 
-  bool expected_unique() {
+  void set_as_method(std::string tn, int id) {
+    kind = FunctionKind::METHOD;
+    type_name = std::move(tn);
+    method_id = id;
+  }
+
+  bool expected_unique() const {
     return kind == FunctionKind::GLOBAL || kind == FunctionKind::METHOD;
   }
 };
@@ -57,6 +63,7 @@ class Function {
   Function(int _start_word, int _end_word);
   void analyze_prologue(const LinkedObjectFile& file);
   void find_global_function_defs(LinkedObjectFile& file);
+  void find_method_defs(LinkedObjectFile& file);
 
   int segment = -1;
   int start_word = -1;

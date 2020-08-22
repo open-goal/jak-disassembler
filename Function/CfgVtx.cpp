@@ -61,6 +61,7 @@ void CfgVtx::replace_succ_and_check(CfgVtx* old_succ, CfgVtx* new_succ) {
  * Replace references to old_preds with a single new_pred.
  * Doesn't insert duplicates.
  * Error if all old preds aren't found.
+ * If new_pred is nullptr, just removes the old preds without adding a new.
  */
 void CfgVtx::replace_preds_with_and_check(std::vector<CfgVtx*> old_preds, CfgVtx* new_pred) {
   std::vector<bool> found(old_preds.size(), false);
@@ -85,7 +86,10 @@ void CfgVtx::replace_preds_with_and_check(std::vector<CfgVtx*> old_preds, CfgVtx
     }
   }
 
-  new_pred_list.push_back(new_pred);
+  if (new_pred) {
+    new_pred_list.push_back(new_pred);
+  }
+
   pred = new_pred_list;
 
   for (auto x : found) {
@@ -143,7 +147,8 @@ std::shared_ptr<Form> BlockVtx::to_form() {
 std::string SequenceVtx::to_string() {
   assert(!seq.empty());
   // todo - this is not a great way to print it. Maybe sequences should have an ID or name?
-  std::string result = "Seq " + seq.front()->to_string() + " ... " + seq.back()->to_string();
+  std::string result =
+      "Seq " + seq.front()->to_string() + " ... " + seq.back()->to_string() + std::to_string(uid);
   return result;
 }
 
@@ -172,6 +177,88 @@ std::shared_ptr<Form> ExitVtx::to_form() {
   return toForm("exit");
 }
 
+std::string CondWithElse::to_string() {
+  return "CONDWE" + std::to_string(uid);
+}
+
+std::shared_ptr<Form> CondWithElse::to_form() {
+  std::vector<std::shared_ptr<Form>> forms;
+  forms.push_back(toForm("cond"));
+  for (const auto& x : entries) {
+    std::vector<std::shared_ptr<Form>> e = {x.condition->to_form(), x.body->to_form()};
+    forms.push_back(buildList(e));
+  }
+  std::vector<std::shared_ptr<Form>> e = {toForm("else"), else_vtx->to_form()};
+  forms.push_back(buildList(e));
+  return buildList(forms);
+}
+
+std::string CondNoElse::to_string() {
+  return "CONDNE" + std::to_string(uid);
+}
+
+std::shared_ptr<Form> CondNoElse::to_form() {
+  std::vector<std::shared_ptr<Form>> forms;
+  forms.push_back(toForm("cond"));
+  for (const auto& x : entries) {
+    std::vector<std::shared_ptr<Form>> e = {x.condition->to_form(), x.body->to_form()};
+    forms.push_back(buildList(e));
+  }
+  return buildList(forms);
+}
+
+std::string WhileLoop::to_string() {
+  return "WHL" + std::to_string(uid);
+}
+
+std::shared_ptr<Form> WhileLoop::to_form() {
+  std::vector<std::shared_ptr<Form>> forms = {toForm("while"), condition->to_form(),
+                                              body->to_form()};
+  return buildList(forms);
+}
+
+std::string UntilLoop::to_string() {
+  return "UNTL" + std::to_string(uid);
+}
+
+std::shared_ptr<Form> UntilLoop::to_form() {
+  std::vector<std::shared_ptr<Form>> forms = {toForm("until"), condition->to_form(),
+                                              body->to_form()};
+  return buildList(forms);
+}
+
+std::string UntilLoop_single::to_string() {
+  return "UNTLS" + std::to_string(uid);
+}
+
+std::shared_ptr<Form> UntilLoop_single::to_form() {
+  std::vector<std::shared_ptr<Form>> forms = {toForm("until1"), block->to_form()};
+  return buildList(forms);
+}
+
+std::string InfiniteLoopBlock::to_string() {
+  return "INFL" + std::to_string(uid);
+}
+
+std::shared_ptr<Form> InfiniteLoopBlock::to_form() {
+  std::vector<std::shared_ptr<Form>> forms = {toForm("inf-loop"), block->to_form()};
+  return buildList(forms);
+}
+
+std::string ShortCircuit::to_string() {
+  return "SC" + std::to_string(uid);
+}
+
+std::shared_ptr<Form> ShortCircuit::to_form() {
+  std::vector<std::shared_ptr<Form>> forms;
+  forms.push_back(toForm("sc"));
+  for (const auto& x : entries) {
+    forms.push_back(x->to_form());
+  }
+  return buildList(forms);
+}
+
+/*
 std::shared_ptr<Form> IfElseVtx::to_form() {
   std::vector<std::shared_ptr<Form>> forms = {toForm("if"), condition->to_form(),
                                               true_case->to_form(), false_case->to_form()};
@@ -181,14 +268,15 @@ std::shared_ptr<Form> IfElseVtx::to_form() {
 std::string IfElseVtx::to_string() {
   return "if_else";  // todo - something nicer
 }
+*/
 
-std::string WhileLoop::to_string() {
-  return "while_loop";
+std::string GotoEnd::to_string() {
+  return "goto_end" + std::to_string(uid);
 }
 
-std::shared_ptr<Form> WhileLoop::to_form() {
-  std::vector<std::shared_ptr<Form>> forms = {toForm("while"), condition->to_form(),
-                                              body->to_form()};
+std::shared_ptr<Form> GotoEnd::to_form() {
+  std::vector<std::shared_ptr<Form>> forms = {toForm("return-from-function"), body->to_form(),
+                                              unreachable_block->to_form()};
   return buildList(forms);
 }
 
@@ -335,120 +423,66 @@ std::string ControlFlowGraph::to_form_string() {
 //}
 //
 
-/*!
- * Do these 4 vertices make up an if else statement?
- * Vertices can be nullptr, in which case it always return false.
- * They should be in the order the blocks appear in memory (this is checked just in case)
- */
-bool ControlFlowGraph::is_if_else(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2, CfgVtx* b3) {
-  // check existance
-  if (!b0 || !b1 || !b2 || !b3)
-    return false;
-
-  // check verts
-  if (b0->next != b1)
-    return false;
-  if (b0->succ_ft != b1)
-    return false;
-  if (b0->succ_branch != b2)
-    return false;
-  if (b0->end_branch.branch_always)
-    return false;
-  if (b0->end_branch.branch_likely)
-    return false;
-  assert(b0->end_branch.has_branch);
-  // b0 prev, pred don't care
-
-  if (b1->prev != b0)
-    return false;
-  if (!b1->has_pred(b0))
-    return false;
-  if (b1->pred.size() != 1)
-    return false;
-  if (b1->next != b2)
-    return false;
-  if (b1->succ_ft)
-    return false;
-  if (b1->succ_branch != b3)
-    return false;
-  assert(b1->end_branch.branch_always);
-  assert(b1->end_branch.has_branch);
-  if (b1->end_branch.branch_likely)
-    return false;
-
-  if (b2->prev != b1)
-    return false;
-  if (!b2->has_pred(b0))
-    return false;
-  if (b2->pred.size() != 1)
-    return false;
-  if (b2->next != b3)
-    return false;
-  if (b2->succ_branch)
-    return false;
-  assert(!b2->end_branch.has_branch);
-  if (b2->succ_ft != b3)
-    return false;
-
-  if (b3->prev != b2)
-    return false;
-  if (!b3->has_pred(b2))
-    return false;
-  if (!b3->has_pred(b1))
-    return false;
-
-  return true;
-}
-
-bool ControlFlowGraph::is_sequence(CfgVtx* b0, CfgVtx* b1) {
-  if (!b0 || !b1)
-    return false;
-  if (b0->next != b1)
-    return false;
-  if (b0->succ_ft != b1) {
-    // may unconditionally branch to get to a loop.
-    if (b0->succ_branch != b1)
-      return false;
-    if (b0->succ_ft)
-      return false;
-    assert(b0->end_branch.branch_always);
-  } else {
-    // falls through
-    if (b0->succ_branch)
-      return false;
-    assert(!b0->end_branch.has_branch);
-  }
-
-  if (b1->prev != b0)
-    return false;
-  if (b1->pred.size() != 1)
-    return false;
-  if (!b1->has_pred(b0))
-    return false;
-  if (b1->succ_branch == b0)
-    return false;
-
-  return true;
-}
-
-bool ControlFlowGraph::is_sequence_of_non_sequences(CfgVtx* b0, CfgVtx* b1) {
-  if (!b0 || !b1)
-    return false;
-  if (dynamic_cast<SequenceVtx*>(b0) || dynamic_cast<SequenceVtx*>(b1))
-    return false;
-  return is_sequence(b0, b1);
-}
-
-bool ControlFlowGraph::is_sequence_of_sequence_and_non_sequence(CfgVtx* b0, CfgVtx* b1) {
-  if (!b0 || !b1)
-    return false;
-  if (!dynamic_cast<SequenceVtx*>(b0))
-    return false;
-  if (dynamic_cast<SequenceVtx*>(b1))
-    return false;
-  return is_sequence(b0, b1);
-}
-
+// bool ControlFlowGraph::is_if_else(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2, CfgVtx* b3) {
+//  // check existance
+//  if (!b0 || !b1 || !b2 || !b3)
+//    return false;
+//
+//  // check verts
+//  if (b0->next != b1)
+//    return false;
+//  if (b0->succ_ft != b1)
+//    return false;
+//  if (b0->succ_branch != b2)
+//    return false;
+//  if (b0->end_branch.branch_always)
+//    return false;
+//  if (b0->end_branch.branch_likely)
+//    return false;
+//  assert(b0->end_branch.has_branch);
+//  // b0 prev, pred don't care
+//
+//  if (b1->prev != b0)
+//    return false;
+//  if (!b1->has_pred(b0))
+//    return false;
+//  if (b1->pred.size() != 1)
+//    return false;
+//  if (b1->next != b2)
+//    return false;
+//  if (b1->succ_ft)
+//    return false;
+//  if (b1->succ_branch != b3)
+//    return false;
+//  assert(b1->end_branch.branch_always);
+//  assert(b1->end_branch.has_branch);
+//  if (b1->end_branch.branch_likely)
+//    return false;
+//
+//  if (b2->prev != b1)
+//    return false;
+//  if (!b2->has_pred(b0))
+//    return false;
+//  if (b2->pred.size() != 1)
+//    return false;
+//  if (b2->next != b3)
+//    return false;
+//  if (b2->succ_branch)
+//    return false;
+//  assert(!b2->end_branch.has_branch);
+//  if (b2->succ_ft != b3)
+//    return false;
+//
+//  if (b3->prev != b2)
+//    return false;
+//  if (!b3->has_pred(b2))
+//    return false;
+//  if (!b3->has_pred(b1))
+//    return false;
+//
+//  return true;
+//}
+//
 bool ControlFlowGraph::is_while_loop(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2) {
   // todo - check delay slots!
   if (!b0 || !b1 || !b2)
@@ -510,10 +544,73 @@ bool ControlFlowGraph::is_while_loop(CfgVtx* b0, CfgVtx* b1, CfgVtx* b2) {
   return true;
 }
 
-/*!
- * Find all if else statements in the top level.
- * TODO - will we accidentally find some cond statements like this?
- */
+bool ControlFlowGraph::is_until_loop(CfgVtx* b1, CfgVtx* b2) {
+  // todo - check delay slots!
+  if (!b1 || !b2)
+    return false;
+
+  // check next and prev
+  if (b1->next != b2)
+    return false;
+  if (b2->prev != b1)
+    return false;
+
+  // check b1 -> b2 fallthrough
+  if (b1->succ_ft != b2)
+    return false;
+  if (b1->succ_branch)
+    return false;
+  assert(!b1->end_branch.has_branch);
+
+  assert(b2->has_pred(b1));
+  if (b2->pred.size() != 1)
+    return false;
+
+  // check b2's branch back
+  if (b2->succ_branch != b1)
+    return false;
+  if (b2->end_branch.branch_likely)
+    return false;
+  if (b2->end_branch.branch_always)
+    return false;
+
+  return true;
+}
+
+bool ControlFlowGraph::is_goto_end_and_unreachable(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1) {
+    return false;
+  }
+
+  // b0 should branch to the and end vertex always
+  if (!b0->end_branch.has_branch)
+    return false;
+  if (!b0->end_branch.branch_always)
+    return false;
+  if (b0->end_branch.branch_likely)
+    return false;
+
+  // b0 should next to b1
+  if (b0->next != b1)
+    return false;
+  assert(b1->prev == b0);
+
+  // b1 should have no preds
+  if (!b1->pred.empty())
+    return false;
+
+  auto dest = b0->succ_branch;
+  auto dest_as_block = dynamic_cast<BlockVtx*>(dest);
+  //  printf("DAB: %s\n", dest_as_block->to_string().c_str());
+  if (!dest_as_block)
+    return false;
+  if (!dest_as_block->is_early_exit_block)
+    return false;
+
+  return true;  // match!
+}
+
+/*
 bool ControlFlowGraph::find_if_else_top_level() {
   // todo check delay slots
   // Example:
@@ -583,6 +680,7 @@ bool ControlFlowGraph::find_if_else_top_level() {
   }
   return found_one;
 }
+ */
 
 bool ControlFlowGraph::find_while_loop_top_level() {
   // B0 can start with whatever
@@ -634,6 +732,265 @@ bool ControlFlowGraph::find_while_loop_top_level() {
   return found_one;
 }
 
+bool ControlFlowGraph::find_until_loop() {
+  // B2 has conditional non-likely branch to B1
+  // B1 falls through to B2 and nowhere else
+  // B2 can end with whatever
+  bool found_one = false;
+  bool needs_work = true;
+  while (needs_work) {
+    needs_work = false;
+    for_each_top_level_vtx([&](CfgVtx* vtx) {
+      auto* b1 = vtx;
+      auto* b2 = b1 ? b1->next : nullptr;
+
+      if (is_until_loop(b1, b2)) {
+        needs_work = true;
+
+        auto* new_vtx = alloc<UntilLoop>();
+        new_vtx->body = b1;
+        new_vtx->condition = b2;
+
+        for (auto* b0 : b1->pred) {
+          b0->replace_succ_and_check(b1, new_vtx);
+        }
+
+        new_vtx->pred = b1->pred;
+        new_vtx->replace_preds_with_and_check({b2}, nullptr);
+
+        assert(b2->succ_ft);
+        b2->succ_ft->replace_pred_and_check(b2, new_vtx);
+        new_vtx->succ_ft = b2->succ_ft;
+        // succ_branch is going back into the loop
+
+        new_vtx->prev = b1->prev;
+        if (new_vtx->prev) {
+          new_vtx->prev->next = new_vtx;
+        }
+
+        new_vtx->next = b2->next;
+        if (new_vtx->next) {
+          new_vtx->next->prev = new_vtx;
+        }
+
+        b1->parent_claim(new_vtx);
+        b2->parent_claim(new_vtx);
+        found_one = true;
+        return false;
+      } else {
+        return true;
+      }
+    });
+  }
+  return found_one;
+}
+
+bool ControlFlowGraph::find_infinite_loop() {
+  bool found = false;
+
+  for_each_top_level_vtx([&](CfgVtx* vtx) {
+    if (vtx->succ_branch == vtx && !vtx->succ_ft) {
+      auto inf = alloc<InfiniteLoopBlock>();
+      inf->block = vtx;
+      inf->pred = vtx->pred;
+      inf->replace_preds_with_and_check({vtx}, nullptr);
+      for (auto* x : inf->pred) {
+        x->replace_succ_and_check(vtx, inf);
+      }
+      inf->prev = vtx->prev;
+      if (inf->prev) {
+        inf->prev->next = inf;
+      }
+
+      inf->next = vtx->next;
+      if (inf->next) {
+        inf->succ_ft = inf->next;
+        inf->next->prev = inf;
+        inf->succ_ft->pred.push_back(inf);
+      }
+
+      inf->succ_branch = nullptr;
+      vtx->parent_claim(inf);
+
+      found = true;
+      return false;
+    }
+
+    return true;
+  });
+
+  return found;
+}
+
+bool ControlFlowGraph::find_until1_loop() {
+  bool found = false;
+
+  for_each_top_level_vtx([&](CfgVtx* vtx) {
+    if (vtx->succ_branch == vtx && vtx->succ_ft) {
+      auto loop = alloc<UntilLoop_single>();
+      loop->block = vtx;
+      loop->pred = vtx->pred;
+      loop->replace_preds_with_and_check({vtx}, nullptr);
+      for (auto* x : loop->pred) {
+        x->replace_succ_and_check(vtx, loop);
+      }
+      loop->prev = vtx->prev;
+      if (loop->prev) {
+        loop->prev->next = loop;
+      }
+
+      loop->next = vtx->next;
+      if (loop->next) {
+        loop->next->prev = loop;
+      }
+
+      loop->succ_ft = vtx->succ_ft;
+      loop->succ_ft->replace_pred_and_check(vtx, loop);
+
+      vtx->parent_claim(loop);
+
+      found = true;
+      return false;
+    }
+
+    return true;
+  });
+
+  return found;
+}
+
+bool ControlFlowGraph::find_goto_end() {
+  bool replaced = false;
+
+  for_each_top_level_vtx([&](CfgVtx* vtx) {
+    auto* b0 = vtx;
+    auto* b1 = vtx->next;
+    if (is_goto_end_and_unreachable(b0, b1)) {
+      replaced = true;
+
+      auto* new_goto = alloc<GotoEnd>();
+      new_goto->body = b0;
+      new_goto->unreachable_block = b1;
+
+      for (auto* new_pred : b0->pred) {
+        //        printf("fix up pred %s of %s\n", new_pred->to_string().c_str(),
+        //        b0->to_string().c_str());
+        new_pred->replace_succ_and_check(b0, new_goto);
+      }
+      new_goto->pred = b0->pred;
+
+      for (auto* new_succ : b1->succs()) {
+        //        new_succ->replace_preds_with_and_check({b1}, nullptr);
+        new_succ->replace_pred_and_check(b1, new_goto);
+      }
+      // this is a lie, but ok
+
+      new_goto->succ_ft = b1->succ_ft;
+      new_goto->succ_branch = b1->succ_branch;
+      new_goto->end_branch = b1->end_branch;
+
+      //      if(b1->next) {
+      //        b1->next->pred.push_back(new_goto);
+      //      }
+      //      new_goto->succ_branch = b1->succ_branch;
+      //      new_goto->end_branch = b1->end_branch;
+
+      new_goto->prev = b0->prev;
+      if (new_goto->prev) {
+        new_goto->prev->next = new_goto;
+      }
+
+      new_goto->next = b1->next;
+      if (new_goto->next) {
+        new_goto->next->prev = new_goto;
+      }
+
+      b0->succ_branch->replace_preds_with_and_check({b0}, nullptr);
+
+      b0->parent_claim(new_goto);
+      b1->parent_claim(new_goto);
+
+      return false;
+    }
+
+    // keep looking
+    return true;
+  });
+
+  return replaced;
+}
+
+bool ControlFlowGraph::is_sequence(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1)
+    return false;
+  if (b0->next != b1)
+    return false;
+  if (b0->succ_ft != b1) {
+    // may unconditionally branch to get to a loop.
+    if (b0->succ_branch != b1)
+      return false;
+    if (b0->succ_ft)
+      return false;
+    assert(b0->end_branch.branch_always);
+  } else {
+    // falls through
+    if (b0->succ_branch)
+      return false;
+    assert(!b0->end_branch.has_branch);
+  }
+
+  if (b1->prev != b0)
+    return false;
+  if (b1->pred.size() != 1)
+    return false;
+  if (!b1->has_pred(b0))
+    return false;
+  if (b1->succ_branch == b0)
+    return false;
+
+  return true;
+}
+
+bool ControlFlowGraph::is_sequence_of_non_sequences(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1)
+    return false;
+  if (dynamic_cast<SequenceVtx*>(b0) || dynamic_cast<SequenceVtx*>(b1))
+    return false;
+  return is_sequence(b0, b1);
+}
+
+bool ControlFlowGraph::is_sequence_of_sequence_and_non_sequence(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1)
+    return false;
+  if (!dynamic_cast<SequenceVtx*>(b0))
+    return false;
+  if (dynamic_cast<SequenceVtx*>(b1))
+    return false;
+  return is_sequence(b0, b1);
+}
+
+bool ControlFlowGraph::is_sequence_of_sequence_and_sequence(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1)
+    return false;
+  if (!dynamic_cast<SequenceVtx*>(b0))
+    return false;
+  if (!dynamic_cast<SequenceVtx*>(b1))
+    return false;
+  return is_sequence(b0, b1);
+}
+
+bool ControlFlowGraph::is_sequence_of_non_sequence_and_sequence(CfgVtx* b0, CfgVtx* b1) {
+  if (!b0 || !b1) {
+    return false;
+  }
+
+  if (dynamic_cast<SequenceVtx*>(b0))
+    return false;
+  if (!dynamic_cast<SequenceVtx*>(b1))
+    return false;
+  return is_sequence(b0, b1);
+}
+
 /*!
  * Find and insert at most one sequence. Return true if sequence is inserted.
  * To generate more readable debug output, we should aim to run this as infrequent and as
@@ -645,7 +1002,12 @@ bool ControlFlowGraph::find_seq_top_level() {
     auto* b0 = vtx;
     auto* b1 = vtx->next;
 
+    //    if (b0 && b1) {
+    //      printf("try seq %s %s\n", b0->to_string().c_str(), b1->to_string().c_str());
+    //    }
+
     if (is_sequence_of_non_sequences(b0, b1)) {  // todo, avoid nesting sequences.
+      //      printf("make seq type 1 %s %s\n", b0->to_string().c_str(), b1->to_string().c_str());
       replaced = true;
 
       auto* new_seq = alloc<SequenceVtx>();
@@ -679,6 +1041,7 @@ bool ControlFlowGraph::find_seq_top_level() {
     }
 
     if (is_sequence_of_sequence_and_non_sequence(b0, b1)) {
+      //      printf("make seq type 2 %s %s\n", b0->to_string().c_str(), b1->to_string().c_str());
       replaced = true;
       auto* seq = dynamic_cast<SequenceVtx*>(b0);
       assert(seq);
@@ -700,10 +1063,508 @@ bool ControlFlowGraph::find_seq_top_level() {
       return false;
     }
 
+    if (is_sequence_of_non_sequence_and_sequence(b0, b1)) {
+      replaced = true;
+      auto* seq = dynamic_cast<SequenceVtx*>(b1);
+      assert(seq);
+      seq->seq.insert(seq->seq.begin(), b0);
+
+      for (auto* p : b0->pred) {
+        p->replace_succ_and_check(b0, seq);
+      }
+      seq->pred = b0->pred;
+      seq->prev = b0->prev;
+      if (seq->prev) {
+        seq->prev->next = seq;
+      }
+
+      b0->parent_claim(seq);
+      return false;
+    }
+
+    if (is_sequence_of_sequence_and_sequence(b0, b1)) {
+      //      printf("make seq type 3 %s %s\n", b0->to_string().c_str(), b1->to_string().c_str());
+      replaced = true;
+      auto* seq = dynamic_cast<SequenceVtx*>(b0);
+      assert(seq);
+
+      auto* old_seq = dynamic_cast<SequenceVtx*>(b1);
+      assert(old_seq);
+
+      for (auto* x : old_seq->seq) {
+        x->parent_claim(seq);
+        seq->seq.push_back(x);
+      }
+
+      for (auto* x : old_seq->succs()) {
+        //        printf("fix preds of %s\n", x->to_string().c_str());
+        x->replace_pred_and_check(old_seq, seq);
+      }
+      seq->succ_branch = old_seq->succ_branch;
+      seq->succ_ft = old_seq->succ_ft;
+      seq->end_branch = old_seq->end_branch;
+      seq->next = old_seq->next;
+      if (seq->next) {
+        seq->next->prev = seq;
+      }
+
+      // todo - proper trash?
+      old_seq->parent_claim(seq);
+
+      return false;
+    }
+
     return true;  // keep looking
   });
 
   return replaced;
+}
+
+namespace {
+
+// is a found after b?
+bool is_found_after(CfgVtx* a, CfgVtx* b) {
+  b = b->next;
+  while (b) {
+    if (a == b) {
+      return true;
+    }
+    b = b->next;
+  }
+  return false;
+}
+
+}  // namespace
+
+bool ControlFlowGraph::find_cond_w_else() {
+  bool found = false;
+
+  for_each_top_level_vtx([&](CfgVtx* vtx) {
+    // determine where the "else" block would be
+    auto* c0 = vtx;       // first condition
+    auto* b0 = c0->next;  // first body
+    if (!b0) {
+      return true;
+    }
+
+    //        printf("cwe try %s %s\n", c0->to_string().c_str(), b0->to_string().c_str());
+
+    // first condition should have the _option_ to fall through to first body
+    if (c0->succ_ft != b0) {
+      return true;
+    }
+
+    // first body MUST unconditionally jump to else
+    if (b0->succ_ft || b0->end_branch.branch_likely) {
+      return true;
+    }
+
+    if (b0->pred.size() != 1) {
+      return true;
+    }
+
+    assert(b0->end_branch.has_branch);
+    assert(b0->end_branch.branch_always);
+    assert(b0->succ_branch);
+
+    // TODO - check what's in the delay slot!
+    auto* end_block = b0->succ_branch;
+    if (!end_block) {
+      return true;
+    }
+
+    if (!is_found_after(end_block, b0)) {
+      return true;
+    }
+
+    auto* else_block = end_block->prev;
+    if (!else_block) {
+      return true;
+    }
+
+    if (!is_found_after(else_block, b0)) {
+      return true;
+    }
+
+    if (else_block->succ_branch) {
+      return true;
+    }
+
+    if (else_block->succ_ft != end_block) {
+      return true;
+    }
+    assert(!else_block->end_branch.has_branch);
+
+    std::vector<CondWithElse::Entry> entries = {{c0, b0}};
+    auto* prev_condition = c0;
+    auto* prev_body = b0;
+
+    // loop to try to grab all the cases up to the else, or reject if the inside is not sufficiently
+    // compact or if this is not actually a cond with else Note, we are responsible for checking the
+    // branch of prev_condition, but not the fallthrough
+    while (true) {
+      auto* next = prev_body->next;
+      if (next == else_block) {
+        // TODO - check what's in the delay slot!
+        // we're done!
+        // check the prev_condition, prev_body blocks properly go to the else/end_block
+        // prev_condition should jump to else:
+        if (prev_condition->succ_branch != else_block || prev_condition->end_branch.branch_likely) {
+          return true;
+        }
+
+        // prev_body should jump to end
+        if (prev_body->succ_branch != end_block) {
+          return true;
+        }
+
+        break;
+      } else {
+        auto* c = next;
+        auto* b = c->next;
+        if (!c || !b) {
+          ;
+          return true;
+        };
+        // attempt to add another
+
+        if (c->pred.size() != 1) {
+          return true;
+        }
+
+        if (b->pred.size() != 1) {
+          return true;
+        }
+
+        // how to get to cond
+        if (prev_condition->succ_branch != c || prev_condition->end_branch.branch_likely) {
+          return true;
+        }
+
+        if (c->succ_ft != b) {
+          return true;  // condition should have the option to fall through if matched
+        }
+
+        // TODO - check what's in the delay slot!
+        if (c->end_branch.branch_likely) {
+          return true;  // otherwise should go to next with a non-likely branch
+        }
+
+        if (b->succ_ft || b->end_branch.branch_likely) {
+          return true;  // body should go straight to else
+        }
+
+        if (b->succ_branch != end_block) {
+          return true;
+        }
+
+        entries.emplace_back(c, b);
+        prev_body = b;
+        prev_condition = c;
+      }
+    }
+
+    // now we need to add it
+    //    printf("got cwe\n");
+    auto new_cwe = alloc<CondWithElse>();
+
+    // link x <-> new_cwe
+    for (auto* npred : c0->pred) {
+      npred->replace_succ_and_check(c0, new_cwe);
+    }
+    new_cwe->pred = c0->pred;
+    new_cwe->prev = c0->prev;
+    if (new_cwe->prev) {
+      new_cwe->prev->next = new_cwe;
+    }
+
+    // link new_cwe <-> end
+    std::vector<CfgVtx*> to_replace;
+    to_replace.push_back(else_block);
+    for (const auto& x : entries) {
+      to_replace.push_back(x.body);
+    }
+    end_block->replace_preds_with_and_check(to_replace, new_cwe);
+    new_cwe->succ_ft = end_block;
+    new_cwe->next = end_block;
+    end_block->prev = new_cwe;
+
+    new_cwe->else_vtx = else_block;
+    new_cwe->entries = std::move(entries);
+
+    else_block->parent_claim(new_cwe);
+    for (const auto& x : new_cwe->entries) {
+      x.body->parent_claim(new_cwe);
+      x.condition->parent_claim(new_cwe);
+    }
+    found = true;
+    return false;
+  });
+
+  return found;
+}
+
+bool ControlFlowGraph::find_cond_n_else() {
+  bool found = false;
+
+  for_each_top_level_vtx([&](CfgVtx* vtx) {
+    auto* c0 = vtx;       // first condition
+    auto* b0 = c0->next;  // first body
+    if (!b0) {
+      //      printf("reject 0\n");
+      return true;
+    }
+
+    //            printf("cne: c0 %s b0 %s\n", c0->to_string().c_str(), b0->to_string().c_str());
+
+    // first condition should have the _option_ to fall through to first body
+    if (c0->succ_ft != b0) {
+      //      printf("reject 1\n");
+      return true;
+    }
+
+    // first body MUST unconditionally jump to end
+    bool single_case = false;
+    if (b0->end_branch.has_branch) {
+      if (b0->succ_ft || b0->end_branch.branch_likely) {
+        //        printf("reject 2A\n");
+        return true;
+      }
+      assert(b0->end_branch.has_branch);
+      assert(b0->end_branch.branch_always);
+      assert(b0->succ_branch);
+    } else {
+      single_case = true;
+    }
+
+    if (b0->pred.size() != 1) {
+      //      printf("reject 3\n");
+      return true;
+    }
+
+    // TODO - check what's in the delay slot!
+    auto* end_block = single_case ? b0->succ_ft : b0->succ_branch;
+    if (!end_block) {
+      //      printf("reject 4");
+      return true;
+    }
+
+    if (!is_found_after(end_block, b0)) {
+      //      printf("reject 5");
+      return true;
+    }
+
+    std::vector<CondNoElse::Entry> entries = {{c0, b0}};
+    auto* prev_condition = c0;
+    auto* prev_body = b0;
+
+    // loop to try to grab all the cases up to the else, or reject if the inside is not sufficiently
+    // compact or if this is not actually a cond with else Note, we are responsible for checking the
+    // branch of prev_condition, but not the fallthrough
+    while (true) {
+      auto* next = prev_body->next;
+      if (next == end_block) {
+        // TODO - check what's in the delay slot!
+        // we're done!
+        // check the prev_condition, prev_body blocks properly go to the else/end_block
+        // prev_condition should jump to else:
+        if (prev_condition->succ_branch != end_block || prev_condition->end_branch.branch_likely) {
+          //          printf("reject 6\n");
+          return true;
+        }
+
+        // prev_body should jump to end
+        if (!single_case && prev_body->succ_branch != end_block) {
+          //          printf("reject 7\n");
+          return true;
+        }
+
+        break;
+      } else {
+        auto* c = next;
+        auto* b = c->next;
+        if (!c || !b) {
+          //          printf("reject 8\n");
+          return true;
+        };
+        // attempt to add another
+        //        printf("  e %s %s\n", c->to_string().c_str(), b->to_string().c_str());
+
+        if (c->pred.size() != 1) {
+          //          printf("reject 9\n");
+          return true;
+        }
+
+        if (b->pred.size() != 1) {
+          //          printf("reject 10\n");
+          return true;
+        }
+
+        // how to get to cond
+        if (prev_condition->succ_branch != c || prev_condition->end_branch.branch_likely) {
+          //          printf("reject 11\n");
+          return true;
+        }
+
+        if (c->succ_ft != b) {
+          //          printf("reject 12\n");
+          return true;  // condition should have the option to fall through if matched
+        }
+
+        // TODO - check what's in the delay slot!
+        if (c->end_branch.branch_likely) {
+          //          printf("reject 13\n");
+          return true;  // otherwise should go to next with a non-likely branch
+        }
+
+        if (b->succ_ft || b->end_branch.branch_likely) {
+          //          printf("reject 14\n");
+          return true;  // body should go straight to else
+        }
+
+        if (b->succ_branch != end_block) {
+          //          printf("reject 14\n");
+          return true;
+        }
+
+        entries.emplace_back(c, b);
+        prev_body = b;
+        prev_condition = c;
+      }
+    }
+
+    // now we need to add it
+    //    printf("got cne\n");
+    auto new_cwe = alloc<CondNoElse>();
+
+    // link x <-> new_cwe
+    for (auto* npred : c0->pred) {
+      //      printf("in %s, replace succ %s with %s\n", npred->to_string().c_str(),
+      //      c0->to_string().c_str(), new_cwe->to_string().c_str());
+      npred->replace_succ_and_check(c0, new_cwe);
+    }
+    new_cwe->pred = c0->pred;
+    new_cwe->prev = c0->prev;
+    if (new_cwe->prev) {
+      new_cwe->prev->next = new_cwe;
+    }
+
+    // link new_cwe <-> end
+    std::vector<CfgVtx*> to_replace;
+    for (const auto& x : entries) {
+      to_replace.push_back(x.body);
+    }
+    to_replace.push_back(entries.back().condition);
+    //    if(single_case) {
+    //      to_replace.push_back(c0);
+    //    }
+    end_block->replace_preds_with_and_check(to_replace, new_cwe);
+    new_cwe->succ_ft = end_block;
+    new_cwe->next = end_block;
+    end_block->prev = new_cwe;
+
+    new_cwe->entries = std::move(entries);
+
+    for (const auto& x : new_cwe->entries) {
+      x.body->parent_claim(new_cwe);
+      x.condition->parent_claim(new_cwe);
+    }
+    found = true;
+
+    //    printf("now %s\n", new_cwe->to_form()->toStringSimple().c_str());
+    //    printf("%s\n", to_dot().c_str());
+    return false;
+  });
+
+  return found;
+}
+
+bool ControlFlowGraph::find_short_circuits() {
+  bool found = false;
+
+  for_each_top_level_vtx([&](CfgVtx* vtx) {
+    std::vector<CfgVtx*> entries = {vtx};
+    auto* end = vtx->succ_branch;
+    auto* next = vtx->next;
+
+    //    printf("try sc @ %s\n", vtx->to_string().c_str());
+    if (!end || !vtx->end_branch.branch_likely || next != vtx->succ_ft) {
+      //      printf("reject 1\n");
+      return true;
+    }
+
+    while (true) {
+      //      printf("loop sc %s, end %s\n", vtx->to_string().c_str(), end->to_string().c_str());
+      if (next == end) {
+        // one entry sc!
+        break;
+      }
+
+      if (next->next == end) {
+        // check 1 pred
+        if (next->pred.size() != 1) {
+          //          printf("reject 2\n");
+          return true;
+        }
+        entries.push_back(next);
+
+        // done!
+        break;
+      }
+
+      // check 1 pred
+      if (next->pred.size() != 1) {
+        //        printf("reject 3\n");
+        return true;
+      }
+
+      // check branch to end
+      if (next->succ_branch != end || !next->end_branch.branch_likely) {
+        //        printf("reject 4\n");
+        return true;
+      }
+
+      // check fallthrough to next
+      if (!next->succ_ft) {
+        //        printf("reject 5\n");
+        return false;
+      }
+
+      assert(next->succ_ft == next->next);  // bonus check
+      entries.push_back(next);
+      next = next->succ_ft;
+    }
+
+    //    printf("got sc: \n");
+    //    for (auto* x : entries) {
+    //      printf("  %s\n", x->to_string().c_str());
+    //    }
+
+    auto new_sc = alloc<ShortCircuit>();
+
+    for (auto* npred : vtx->pred) {
+      npred->replace_succ_and_check(vtx, new_sc);
+    }
+    new_sc->pred = vtx->pred;
+    new_sc->prev = vtx->prev;
+    if (new_sc->prev) {
+      new_sc->prev->next = new_sc;
+    }
+
+    end->replace_preds_with_and_check(entries, new_sc);
+    new_sc->succ_ft = end;
+    new_sc->next = end;
+    end->prev = new_sc;
+    new_sc->entries = std::move(entries);
+    for (auto* x : new_sc->entries) {
+      x->parent_claim(new_sc);
+    }
+    found = true;
+
+    return false;
+  });
+
+  return found;
 }
 
 /*!
@@ -776,7 +1637,7 @@ void ControlFlowGraph::flag_early_exit(const std::vector<BasicBlock>& blocks) {
  * Build and resolve a Control Flow Graph as much as possible.
  */
 std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file, int seg, Function& func) {
-  //  printf("build cfg!\n");
+  printf("build cfg : %s\n", func.guessed_name.to_string().c_str());
   auto cfg = std::make_shared<ControlFlowGraph>();
 
   const auto& blocks = cfg->create_blocks(func.basic_blocks.size());
@@ -855,13 +1716,34 @@ std::shared_ptr<ControlFlowGraph> build_cfg(const LinkedObjectFile& file, int se
 
   cfg->flag_early_exit(func.basic_blocks);
 
+  //  if(func.guessed_name.to_string() == "(method 9 thread)")
+  //    cfg->find_cond_w_else();
+
+  //  if (func.guessed_name.to_string() != "looping-code") {
+  //    return cfg;
+  //  }
+
   bool changed = true;
   while (changed) {
     changed = false;
+    // note - we should prioritize finding short-circuiting expressions.
+    //    printf("%s\n", cfg->to_dot().c_str());
+    //    printf("%s\n", cfg->to_form()->toStringPretty().c_str());
+
+    changed = changed | cfg->find_cond_w_else();
+    changed = changed | cfg->find_cond_n_else();
     changed = changed || cfg->find_while_loop_top_level();
-    ////    printf("while loops? %d\n", changed);
-    changed = changed || cfg->find_if_else_top_level();
+    //    ////    printf("while loops? %d\n", changed);
+    ////    changed = changed || cfg->find_if_else_top_level();
     changed = changed || cfg->find_seq_top_level();
+    changed = changed || cfg->find_short_circuits();
+
+    if (!changed) {
+      changed = changed || cfg->find_goto_end();
+      changed = changed || cfg->find_until_loop();
+      changed = changed || cfg->find_until1_loop();
+      changed = changed || cfg->find_infinite_loop();
+    };
   }
 
   if (!cfg->is_fully_resolved()) {
