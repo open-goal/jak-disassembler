@@ -135,7 +135,7 @@ Currently the state/behavior stuff isn't well understood, or used in the early i
 
 ## Guess Types (to be implemented)
 
-The majority of GOAL types have a compiler-generated `inpsect` method which prints their fields. We should detect these methods in the previous function name guessing step, and then read through them to determine the data layout of the type.
+The majority of GOAL types have a compiler-generated `inspect` method which prints their fields. We should detect these methods in the previous function name guessing step, and then read through them to determine the data layout of the type.
 
 
 ## Control Flow Analysis
